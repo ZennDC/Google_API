@@ -1,0 +1,74 @@
+{
+    "summary": "string",
+    "location": "string",
+    "description": "string",
+    "start": {
+      "date": "date",
+      "dateTime": "datetime",
+      "timeZone": "string"
+    },
+    "end": {
+      "date": "date",
+      "dateTime": "datetime",
+      "timeZone": "string"
+    },
+    "recurrence": [
+      "string"
+    ],
+    "attendees": [
+      {
+        "email": "string",
+        "displayName": "string",
+        "comment": "string",
+        "additionalGuests": "integer",
+        "optional": "boolean",
+        "responseStatus": "string"
+      }
+    ],
+    "reminders": {
+      "useDefault": "boolean",
+      "overrides": [
+        {
+          "method": "string",
+          "minutes": "integer"
+        }
+      ]
+    },
+    "colorId": "string",
+    "visibility": "string",
+    "guestsCanInviteOthers": "boolean",
+    "guestsCanModify": "boolean",
+    "guestsCanSeeOtherGuests": "boolean",
+    "conferenceData": {
+      "createRequest": {
+        "requestId": "string",
+        "conferenceSolutionKey": {
+          "type": "string"
+        }
+      }
+    },
+    "extendedProperties": {
+      "private": {
+        "(key)": "string"
+      },
+      "shared": {
+        "(key)": "string"
+      }
+    },
+    "source": {
+      "url": "string",
+      "title": "string"
+    },
+    "attachments": [
+      {
+        "fileUrl": "string",
+        "title": "string",
+        "mimeType": "string"
+      }
+    ],
+    "anyoneCanAddSelf": "boolean",
+    "privateCopy": "boolean",
+    "locked": "boolean",
+    "eventType": "string"
+  }
+  

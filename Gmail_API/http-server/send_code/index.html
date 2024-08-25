@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Submission</title>
+</head>
+<body>
+    <form id="codeForm">
+        <label for="codeInput">Enter Code:</label>
+        <input type="text" id="codeInput" name="code">
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        document.getElementById("codeForm").addEventListener("submit", function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            var code = document.getElementById("codeInput").value;
+
+            // Send the code to the server
+            fetch('/submit_code?code=' + encodeURIComponent(code), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                // You can include additional data in the body if needed
+                // body: JSON.stringify({ code: code })
+            }).then(function(response) {
+                if (response.ok) {
+                    console.log("Code submitted successfully!");
+                } else {
+                    console.error("Failed to submit code:", response.statusText);
+                }
+            }).catch(function(error) {
+                console.error("Error:", error);
+            });
+        });
+    </script>
+</body>
+</html>

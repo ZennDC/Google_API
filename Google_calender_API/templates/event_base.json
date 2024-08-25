@@ -1,0 +1,13 @@
+{
+  "summary": "string",
+  "location": "string",
+  "description": "string",
+  "start": {
+    "dateTime": "datetime",
+    "timeZone": "Europe/Brussels"
+  },
+  "end": {
+    "dateTime": "datetime",
+    "timeZone": "Europe/Brussels"
+  }
+}
