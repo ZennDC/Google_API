@@ -8,7 +8,9 @@ from Google_API.Gmail_API.Handlers import MessageHandler, LabelHandler
 from Google_API.Google_calender_API.Handlers import EventHandler, CalendarHandler
 from Google_API.Google_calender_API.Objects import Calendar, TimedEvent, convert_date
 from Google_API.Input_handler.Handler import InputHandler
-from Google_API.Input_handler.Handler import InputHandler
+
+from NotificationAPI import PublicServerAPI
+
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.labels', 'https://www.googleapis.com/auth/gmail.readonly', "https://www.googleapis.com/auth/calendar"]
 
@@ -22,7 +24,9 @@ PATTERN = r'\r\n(..) +(\d{1,2} \w+ \d{4}) \| (\d{2}:\d{2} - \d{2}:\d{2})\r\n\r\n
 PLANNED_LABEL = 'Ingepland'
 CALENDAR_NAME = 'Werk'
 
-RECENT_MAIL_AMOUNT = -1
+RECENT_MAIL_AMOUNT = 1
+
+NotificationAPI = PublicServerAPI(key='k-8c855f94ec54')
 
 
 class Handlers:
@@ -46,11 +50,11 @@ class Data:
     
 
 async def async_mail_handler(handlers: Handlers, data: Data):
-    # Get recent mail
+    # Get new mail
     #messages = await get_new_mail(handlers.messageHandler, data)
 
     # Get an amount of already received mail
-    messages = await get_recent_mail(handlers.messageHandler, data, RECENT_MAIL_AMOUNT)
+    messages = await get_received_messages(handlers.messageHandler, data, RECENT_MAIL_AMOUNT)
     data.stopFlag=True
 
     # Label all work-related messages
@@ -58,14 +62,10 @@ async def async_mail_handler(handlers: Handlers, data: Data):
     for message_id in filtered_messages[0]:
         handlers.labelHandler.add_label_to_message(message_id, data.labelId_label_all)
     
-    await mail_to_event_handler(handlers, data, filtered_messages[1])
+    await message_list_handler(filtered_messages[1], handlers, data)
 
 
-async def mail_to_event_handler(handlers: Handlers, data: Data, message_ids: list) -> None:
-    # Test messages
-    #messages.append('1905450717abc27a')
-    #messages.append('19060653c2e68bd7')
-
+async def message_list_handler(message_ids: list, handlers: Handlers, data: Data) -> None:
     for message_id in message_ids:
         message_body = handlers.messageHandler.getMessageBody(message_id)
 
@@ -95,7 +95,7 @@ async def mail_to_event_handler(handlers: Handlers, data: Data, message_ids: lis
                 handlers.eventHandler.planEvent(data.work_calendar_id, event_obj)
 
 
-async def get_new_mail(handler: MessageHandler, data: Data) -> list:
+async def get_new_messages(handler: MessageHandler, data: Data) -> list:
     async with data.lock:
         messages = []
 
@@ -120,7 +120,7 @@ async def get_new_mail(handler: MessageHandler, data: Data) -> list:
         return messages
 
 
-async def get_recent_mail(handler: MessageHandler, data: Data, amount: int) -> list:
+async def get_received_messages(handler: MessageHandler, data: Data, amount: int) -> list:
     async with data.lock:
         print(f"Started gathering {amount} messages")
 
@@ -189,7 +189,7 @@ async def main():
 
     data.work_calendar_id = id
 
-    asyncio.create_task(handlers.inputHandler.user_input_handler())
+    #asyncio.create_task(handlers.inputHandler.user_input_handler())
 
     while not data.stopFlag:
         asyncio.create_task(async_mail_handler(handlers, data))
