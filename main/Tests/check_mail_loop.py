@@ -2,7 +2,7 @@ import asyncio
 
 from googleapiclient.discovery import build
 
-from Login.Credentials import get_credentials as getCreds
+from OAuth.Google_Credentials import get_credentials as getCreds
 from Google_API.Gmail_API.Handlers import MessageHandler
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.labels']
