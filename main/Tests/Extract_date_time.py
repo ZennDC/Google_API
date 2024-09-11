@@ -3,12 +3,10 @@ import asyncio
 
 from googleapiclient.discovery import build
 
-from Login.Credentials import get_credentials as getCreds
+from OAuth.Google_Credentials import get_credentials as getCreds
 from Google_API.Gmail_API.Handlers import MessageHandler, LabelHandler
-from Google_API.Google_calender_API.Handlers import EventHandler
-from Google_API.Google_calender_API.Objects import TimedEvent, convert_date
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.labels', 'https://www.googleapis.com/auth/gmail.readonly', "https://www.googleapis.com/auth/calendar"]
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.labels']
 
 TIME_DELAY = 30
 
@@ -29,7 +27,7 @@ class Data:
         self.lock = asyncio.Lock()
     
 
-async def async_mail_handler(messageHandler: MessageHandler, labelHandler: LabelHandler, eventHandler: EventHandler, data: Data):
+async def async_mail_handler(messageHandler: MessageHandler, labelHandler: LabelHandler, data: Data):
     messages = await get_new_mail(messageHandler, data)
 
     # Label all work-related messages
@@ -39,7 +37,7 @@ async def async_mail_handler(messageHandler: MessageHandler, labelHandler: Label
 
     # Extract date and time from messages
     filtered_messages = messageHandler.filterSenders(messages, MAIL_ADDR)
-    filtered_messages.append('1905450717abc27a')
+    #filtered_messages.append('1905450717abc27a')
     #filtered_messages.append('19060653c2e68bd7')
 
     for message_id in filtered_messages:
@@ -53,17 +51,7 @@ async def async_mail_handler(messageHandler: MessageHandler, labelHandler: Label
             labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
             for match in matches:
                 print(f"Day: {match[0]}, Date: {match[1]}, Time: {match[2]}")
-                
-                start_date = eventHandler.convert_date(match[1])
-                start_time, end_time = eventHandler.convert_time(match[2])
 
-                if eventHandler.is_greater(start_time, end_time):
-                    end_date = convert_date(start_date, add_day=True, output_format="%d/%m/%Y")
-                else:
-                    end_date = start_date
-
-            event_obj = TimedEvent('test', start_date, start_time, end_date, end_time, time_format='%H:%M').build()
-            eventHandler.planEvent(event_obj)
 
 async def get_new_mail(handler: MessageHandler, data: Data):
     async with data.lock:
@@ -92,14 +80,9 @@ async def get_new_mail(handler: MessageHandler, data: Data):
 
 async def main():
     creds = getCreds("token.json", "credentials.json", SCOPES)
-
-    gmail_service = build('gmail', 'v1', credentials=creds)
-    gcalendar_service = build("calendar", "v3", credentials=creds)
-
-    mh = MessageHandler(gmail_service)
-    lh = LabelHandler(gmail_service)
-
-    eh = EventHandler(gcalendar_service)
+    service = build('gmail', 'v1', credentials=creds)
+    mh = MessageHandler(service)
+    lh = LabelHandler(service)
 
     data = Data()
     data.lastId = mh.getNextId()
@@ -109,7 +92,7 @@ async def main():
     data.labelId_planned_label = lh.get_or_create_label_id(PLANNED_LABEL)
 
     while True:
-        asyncio.create_task(async_mail_handler(mh, lh, eh, data))
+        asyncio.create_task(async_mail_handler(mh, lh, data))
         await asyncio.sleep(TIME_DELAY)
 
 asyncio.run(main())

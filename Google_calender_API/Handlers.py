@@ -182,12 +182,12 @@ class CalendarHandler:
         page_token = None
         calendars = []
         while True:
-            calendar_list = self.service.calendarList().list(pageToken=page_token).execute()
-            for calendar_list_entry in calendar_list['items']:
-                calendars.append(calendar_list_entry['summary'])
+            calendar_list: dict = self.service.calendarList().list(pageToken=page_token).execute()
+            calendars.extend(calendar_list["items"])
             page_token = calendar_list.get('nextPageToken')
             if not page_token:
                 break
+        return calendars
 
     def update_calendar(self, calendar_name: str, body: dict) -> None:
         try:

@@ -3,32 +3,35 @@ import asyncio
 
 from googleapiclient.discovery import build
 
-from Google_API.Login.Credentials import get_credentials as getCreds
+from Google_API.OAuth.Google_Credentials import get_credentials as getCreds
 from Google_API.Gmail_API.Handlers import MessageHandler, LabelHandler
 from Google_API.Google_calender_API.Handlers import EventHandler, CalendarHandler
 from Google_API.Google_calender_API.Objects import Calendar, TimedEvent, convert_date
+from Google_API.Input_handler.Handler import InputHandler
+
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.labels', 'https://www.googleapis.com/auth/gmail.readonly', "https://www.googleapis.com/auth/calendar"]
 
-TIME_DELAY = 300
+TIME_DELAY = 30
 
-MAIL_LIST = ['noreply@crewplanner.com', 'noreply@absoluteyou.be', 'no-reply@interimsign.com', 'admin@absoluteyou.be']
+MAIL_LIST = ['noreply@crewplanner.com', 'noreply@absoluteyou.be', 'no-reply@interimsign.com', 'admin@absoluteyou.be', 'zenn.decraene@gmail.com']
 LABEL_ALL = 'Werk'
 
-MAIL_ADDR = ['noreply@crewplanner.com', 'zenn.decraene@gmail.com']
+PLANNING_LIST = ['noreply@crewplanner.com']
 PATTERN = r'\r\n(..) +(\d{1,2} \w+ \d{4}) \| (\d{2}:\d{2} - \d{2}:\d{2})\r\n\r\n[^\r\n]+?bij\s+([^\r\n]+?)\r\n\r\n([^\r\n]+?)\r\n'
 PLANNED_LABEL = 'Ingepland'
 CALENDAR_NAME = 'Werk'
 
-RECENT_MAIL_AMOUNT = -1
+RECENT_MAIL_AMOUNT = 1
 
 
 class Handlers:
-        def __init__(self, messageHandler: MessageHandler, labelHandler: LabelHandler, eventHandler: EventHandler, calendarHandler: CalendarHandler) -> None:
-            self.messageHandler = messageHandler
-            self.labelHandler = labelHandler
-            self.eventHandler = eventHandler
-            self.calendarHandler = calendarHandler
+    def __init__(self, messageHandler: MessageHandler, labelHandler: LabelHandler, eventHandler: EventHandler, calendarHandler: CalendarHandler, inputHandler: InputHandler) -> None:
+        self.messageHandler = messageHandler
+        self.labelHandler = labelHandler
+        self.eventHandler = eventHandler
+        self.calendarHandler = calendarHandler
+        self.inputHandler = inputHandler
 
 
 class Data:
@@ -43,30 +46,23 @@ class Data:
     
 
 async def async_mail_handler(handlers: Handlers, data: Data):
-    # Get recent mail
+    # Get new mail
     #messages = await get_new_mail(handlers.messageHandler, data)
 
     # Get an amount of already received mail
-    messages = await get_recent_mail(handlers.messageHandler, data, RECENT_MAIL_AMOUNT)
+    messages = await get_received_messages(handlers.messageHandler, data, RECENT_MAIL_AMOUNT)
     data.stopFlag=True
 
     # Label all work-related messages
-    filtered_messages = handlers.messageHandler.filterSenders(messages, MAIL_LIST)
-    for message_id in filtered_messages:
+    filtered_messages = handlers.messageHandler.filterSendersMulti(messages, MAIL_LIST, PLANNING_LIST)
+    for message_id in filtered_messages[0]:
         handlers.labelHandler.add_label_to_message(message_id, data.labelId_label_all)
     
-    await mail_to_event_handler(handlers, data, messages)
+    await message_list_handler(filtered_messages[1], handlers, data)
 
-async def mail_to_event_handler(handlers: Handlers, data: Data, messages: list) -> None:
 
-    # Extract date and time from messages
-    filtered_messages = handlers.messageHandler.filterSenders(messages, MAIL_ADDR)
-
-    # Test messages
-    #filtered_messages.append('1905450717abc27a')
-    #filtered_messages.append('19060653c2e68bd7')
-
-    for message_id in filtered_messages:
+async def message_list_handler(message_ids: list, handlers: Handlers, data: Data) -> None:
+    for message_id in message_ids:
         message_body = handlers.messageHandler.getMessageBody(message_id)
 
         matches = re.findall(PATTERN, message_body)
@@ -94,7 +90,8 @@ async def mail_to_event_handler(handlers: Handlers, data: Data, messages: list) 
                 event_obj = event.build()
                 handlers.eventHandler.planEvent(data.work_calendar_id, event_obj)
 
-async def get_new_mail(handler: MessageHandler, data: Data) -> list:
+
+async def get_new_messages(handler: MessageHandler, data: Data) -> list:
     async with data.lock:
         messages = []
 
@@ -118,7 +115,8 @@ async def get_new_mail(handler: MessageHandler, data: Data) -> list:
         print(messages)
         return messages
 
-async def get_recent_mail(handler: MessageHandler, data: Data, amount: int) -> list:
+
+async def get_received_messages(handler: MessageHandler, data: Data, amount: int) -> list:
     async with data.lock:
         print(f"Started gathering {amount} messages")
 
@@ -162,7 +160,9 @@ async def main():
     eh = EventHandler(gcalendar_service)
     ch = CalendarHandler(gcalendar_service)
 
-    handlers = Handlers(mh, lh, eh, ch)
+    ih = InputHandler()
+
+    handlers = Handlers(mh, lh, eh, ch, ih)
     data = Data()
 
     data.lastId = handlers.messageHandler.getNextId()
@@ -185,8 +185,11 @@ async def main():
 
     data.work_calendar_id = id
 
+    #asyncio.create_task(handlers.inputHandler.user_input_handler())
+
     while not data.stopFlag:
         asyncio.create_task(async_mail_handler(handlers, data))
         await asyncio.sleep(TIME_DELAY)
+
 
 asyncio.run(main())

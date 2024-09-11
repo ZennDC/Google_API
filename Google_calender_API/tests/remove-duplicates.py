@@ -1,4 +1,4 @@
-from Google_API.Login.Credentials import get_credentials as get_creds
+from OAuth.Google_Credentials import get_credentials as get_creds
 from Handlers import CalendarHandler
 from googleapiclient.discovery import build
 
