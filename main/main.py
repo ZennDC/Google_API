@@ -3,12 +3,12 @@ import asyncio
 
 from googleapiclient.discovery import build
 
-from Login.Credentials import get_credentials as getCreds
+from Google_API.OAuth.Google_Credentials import get_credentials as getCreds
 from Google_API.Gmail_API.Handlers import MessageHandler, LabelHandler
 from Google_API.Google_calender_API.Handlers import EventHandler, CalendarHandler
 from Google_API.Google_calender_API.Objects import Calendar, TimedEvent, convert_date
 from Google_API.Input_handler.Handler import InputHandler
-from Google_API.Input_handler.Handler import InputHandler
+
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.labels', 'https://www.googleapis.com/auth/gmail.readonly', "https://www.googleapis.com/auth/calendar"]
 
@@ -17,8 +17,10 @@ TIME_DELAY = 30
 MAIL_LIST = ['noreply@crewplanner.com', 'noreply@absoluteyou.be', 'no-reply@interimsign.com', 'admin@absoluteyou.be', 'zenn.decraene@gmail.com']
 LABEL_ALL = 'Werk'
 
-PLANNING_LIST = ['noreply@crewplanner.com', 'zenn.decraene@gmail.com']
+PLANNING_LIST = ['noreply@crewplanner.com']
 PATTERN = r'\r\n(..) +(\d{1,2} \w+ \d{4}) \| (\d{2}:\d{2} - \d{2}:\d{2})\r\n\r\n[^\r\n]+?bij\s+([^\r\n]+?)\r\n\r\n([^\r\n]+?)\r\n'
+NEW_SHIFT = "Ingepland op"
+REM_SHIFT = "Uitgepland op"
 PLANNED_LABEL = 'Ingepland'
 CALENDAR_NAME = 'Werk'
 
@@ -46,11 +48,11 @@ class Data:
     
 
 async def async_mail_handler(handlers: Handlers, data: Data):
-    # Get recent mail
+    # Get new mail
     #messages = await get_new_mail(handlers.messageHandler, data)
 
     # Get an amount of already received mail
-    messages = await get_recent_mail(handlers.messageHandler, data, RECENT_MAIL_AMOUNT)
+    messages = await get_received_messages(handlers.messageHandler, data, RECENT_MAIL_AMOUNT)
     data.stopFlag=True
 
     # Label all work-related messages
@@ -58,44 +60,59 @@ async def async_mail_handler(handlers: Handlers, data: Data):
     for message_id in filtered_messages[0]:
         handlers.labelHandler.add_label_to_message(message_id, data.labelId_label_all)
     
-    await mail_to_event_handler(handlers, data, filtered_messages[1])
+    await message_list_handler(filtered_messages[1], handlers, data)
 
 
-async def mail_to_event_handler(handlers: Handlers, data: Data, message_ids: list) -> None:
-    # Test messages
-    #messages.append('1905450717abc27a')
-    #messages.append('19060653c2e68bd7')
-
+async def message_list_handler(message_ids: list, handlers: Handlers, data: Data) -> None:
     for message_id in message_ids:
         message_body = handlers.messageHandler.getMessageBody(message_id)
 
-        matches = re.findall(PATTERN, message_body)
+        if NEW_SHIFT in message_body:
+            matches = re.findall(PATTERN, message_body)
 
-        if not matches:
-            print('No matches found.')
-        else:
-            handlers.labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
-            for match in matches:
-                day, date, time, place, location = match
+            if not matches:
+                print('No matches found.')
+            else:
+                handlers.labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
+                for match in matches:
+                    day, date, time, place, location = match
 
-                print(f"New event: {place}, {day} {date}, {time}, Location: {location}")
-                
-                start_date = handlers.eventHandler.convert_date(date)
-                start_time, end_time = handlers.eventHandler.convert_time(time)
+                    print(f"New event: {place}, {day} {date}, {time}, Location: {location}")
+                    
+                    start_date = handlers.eventHandler.convert_date(date)
+                    start_time, end_time = handlers.eventHandler.convert_time(time)
 
-                if handlers.eventHandler.is_greater(start_time, end_time):
-                    end_date = convert_date(start_date, add_day=True, output_format="%d/%m/%Y")
-                else:
-                    end_date = start_date
+                    if handlers.eventHandler.is_greater(start_time, end_time):
+                        end_date = convert_date(start_date, add_day=True, output_format="%d/%m/%Y")
+                    else:
+                        end_date = start_date
 
-                event = TimedEvent(place, start_date, start_time, end_date, end_time, time_format='%H:%M')
-                event.location = location
+                    event = TimedEvent(place, start_date, start_time, end_date, end_time, time_format='%H:%M')
+                    event.location = location
 
-                event_obj = event.build()
-                handlers.eventHandler.planEvent(data.work_calendar_id, event_obj)
+                    event_obj = event.build()
+                    handlers.eventHandler.planEvent(data.work_calendar_id, event_obj)
+        elif REM_SHIFT in message_body:
+            matches = re.findall(PATTERN, message_body)
+
+            if not matches:
+                print('No matches found.')
+            else:
+                handlers.labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
+                for match in matches:
+                    _, date, time, _, _ = match
+                    date = convert_date(handlers.eventHandler.convert_date(date))
+                    events = handlers.eventHandler.getEvents(data.work_calendar_id, date)
+                    start_time, end_time = handlers.eventHandler.convert_time(time)
+                    print(events)
+                    for event in events:
+                        print(event['start']['dateTime'], f"{date}T{start_time}Z")
+                        if event['start']['dateTime'] == f"{date}T{start_time}Z":
+                            handlers.eventHandler.delEvent(data.work_calendar_id, event["id"])
+        
 
 
-async def get_new_mail(handler: MessageHandler, data: Data) -> list:
+async def get_new_messages(handler: MessageHandler, data: Data) -> list:
     async with data.lock:
         messages = []
 
@@ -120,7 +137,7 @@ async def get_new_mail(handler: MessageHandler, data: Data) -> list:
         return messages
 
 
-async def get_recent_mail(handler: MessageHandler, data: Data, amount: int) -> list:
+async def get_received_messages(handler: MessageHandler, data: Data, amount: int) -> list:
     async with data.lock:
         print(f"Started gathering {amount} messages")
 
@@ -189,7 +206,7 @@ async def main():
 
     data.work_calendar_id = id
 
-    asyncio.create_task(handlers.inputHandler.user_input_handler())
+    #asyncio.create_task(handlers.inputHandler.user_input_handler())
 
     while not data.stopFlag:
         asyncio.create_task(async_mail_handler(handlers, data))

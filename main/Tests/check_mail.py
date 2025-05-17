@@ -1,4 +1,4 @@
-from Login.Credentials import get_credentials as getCreds
+from OAuth.Google_Credentials import get_credentials as getCreds
 from Google_API.Gmail_API.Handlers import MessageHandler
 
 import time
