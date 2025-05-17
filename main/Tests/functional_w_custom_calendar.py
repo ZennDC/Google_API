@@ -3,7 +3,7 @@ import asyncio
 
 from googleapiclient.discovery import build
 
-from Login.Credentials import get_credentials as getCreds
+from OAuth.Google_Credentials import get_credentials as getCreds
 from Google_API.Gmail_API.Handlers import MessageHandler, LabelHandler
 from Google_API.Google_calender_API.Handlers import EventHandler, CalendarHandler
 from Google_API.Google_calender_API.Objects import Calendar, TimedEvent, convert_date
