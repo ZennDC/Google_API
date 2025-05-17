@@ -163,7 +163,24 @@ cython_debug/
 
 
 # added by ZennDC; Project specific files
-.vscode
+
+
+# add everything
+*
+# except the following
+!.gitignore
+
+!.Gmail_API
+!.Gmail_API/**
+!.Google_calendar_API
+!.Google_calendar_API/**
+!.Input_handler
+!.Input_handler/**
+!.OAuth
+!.OAuth/**
+
+!.README.md
+!.__init__.py
 
 credentials.json
 token.json
