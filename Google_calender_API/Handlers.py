@@ -81,6 +81,26 @@ class EventHandler:
             # Handle ValueError if time1 or time2 are not in the correct format
             print("Invalid time format. Please use 'hh:mm'.")
 
+    def getEvents(self, calendarId, day):
+        start_of_day = f"{day}T00:00:00Z"  # Beginning of the day in UTC (ISO 8601 format)
+        end_of_day = f"{day}T23:59:59Z"    # End of the day in UTC
+
+        # Call the Calendar API to get events in the defined time range
+        events_result = self.service.events().list(
+            calendarId=calendarId,  # 'primary' refers to the main calendar of the authenticated user
+            timeMin=start_of_day,
+            timeMax=end_of_day,
+            singleEvents=True,  # Ensures recurring events are broken into individual instances
+            orderBy='startTime',
+            timeZone='UTC'
+        ).execute()
+
+        events = events_result.get('items', [])
+        return events
+
+    def delEvent(self, calendarId, eventId):
+        self.service.events().delete(calendarId=calendarId, eventId=eventId).execute()
+
 
 class CalendarHandler:
     def __init__(self, service) -> 'CalendarHandler':

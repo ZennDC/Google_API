@@ -1,11 +1,11 @@
-from OAuth.Google_Credentials import get_credentials as get_creds
-from Handlers import CalendarHandler
+from Google_API.OAuth.Google_Credentials import get_credentials as get_creds
+from Google_API.Google_calender_API.Handlers import CalendarHandler
 from googleapiclient.discovery import build
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 # Set up credentials and initialize the Google Calendar API client
-creds = get_creds('token.json', 'credentials.json', SCOPES)
+creds = get_creds('token.json', 'client_secret.json', SCOPES)
 service = build('calendar', 'v3', credentials=creds)
 
 handler = CalendarHandler(service)

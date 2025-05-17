@@ -19,10 +19,12 @@ LABEL_ALL = 'Werk'
 
 PLANNING_LIST = ['noreply@crewplanner.com']
 PATTERN = r'\r\n(..) +(\d{1,2} \w+ \d{4}) \| (\d{2}:\d{2} - \d{2}:\d{2})\r\n\r\n[^\r\n]+?bij\s+([^\r\n]+?)\r\n\r\n([^\r\n]+?)\r\n'
+NEW_SHIFT = "Ingepland op"
+REM_SHIFT = "Uitgepland op"
 PLANNED_LABEL = 'Ingepland'
 CALENDAR_NAME = 'Werk'
 
-RECENT_MAIL_AMOUNT = 1
+RECENT_MAIL_AMOUNT = -1
 
 
 class Handlers:
@@ -65,30 +67,49 @@ async def message_list_handler(message_ids: list, handlers: Handlers, data: Data
     for message_id in message_ids:
         message_body = handlers.messageHandler.getMessageBody(message_id)
 
-        matches = re.findall(PATTERN, message_body)
+        if NEW_SHIFT in message_body:
+            matches = re.findall(PATTERN, message_body)
 
-        if not matches:
-            print('No matches found.')
-        else:
-            handlers.labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
-            for match in matches:
-                day, date, time, place, location = match
+            if not matches:
+                print('No matches found.')
+            else:
+                handlers.labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
+                for match in matches:
+                    day, date, time, place, location = match
 
-                print(f"New event: {place}, {day} {date}, {time}, Location: {location}")
-                
-                start_date = handlers.eventHandler.convert_date(date)
-                start_time, end_time = handlers.eventHandler.convert_time(time)
+                    print(f"New event: {place}, {day} {date}, {time}, Location: {location}")
+                    
+                    start_date = handlers.eventHandler.convert_date(date)
+                    start_time, end_time = handlers.eventHandler.convert_time(time)
 
-                if handlers.eventHandler.is_greater(start_time, end_time):
-                    end_date = convert_date(start_date, add_day=True, output_format="%d/%m/%Y")
-                else:
-                    end_date = start_date
+                    if handlers.eventHandler.is_greater(start_time, end_time):
+                        end_date = convert_date(start_date, add_day=True, output_format="%d/%m/%Y")
+                    else:
+                        end_date = start_date
 
-                event = TimedEvent(place, start_date, start_time, end_date, end_time, time_format='%H:%M')
-                event.location = location
+                    event = TimedEvent(place, start_date, start_time, end_date, end_time, time_format='%H:%M')
+                    event.location = location
 
-                event_obj = event.build()
-                handlers.eventHandler.planEvent(data.work_calendar_id, event_obj)
+                    event_obj = event.build()
+                    handlers.eventHandler.planEvent(data.work_calendar_id, event_obj)
+        elif REM_SHIFT in message_body:
+            matches = re.findall(PATTERN, message_body)
+
+            if not matches:
+                print('No matches found.')
+            else:
+                handlers.labelHandler.add_label_to_message(message_id, data.labelId_planned_label)
+                for match in matches:
+                    _, date, time, _, _ = match
+                    date = convert_date(handlers.eventHandler.convert_date(date))
+                    events = handlers.eventHandler.getEvents(data.work_calendar_id, date)
+                    start_time, end_time = handlers.eventHandler.convert_time(time)
+                    print(events)
+                    for event in events:
+                        print(event['start']['dateTime'], f"{date}T{start_time}Z")
+                        if event['start']['dateTime'] == f"{date}T{start_time}Z":
+                            handlers.eventHandler.delEvent(data.work_calendar_id, event["id"])
+        
 
 
 async def get_new_messages(handler: MessageHandler, data: Data) -> list:
