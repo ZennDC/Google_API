@@ -5,15 +5,16 @@ from googleapiclient.errors import HttpError
 class MessageHandler:
     """A message handler for the gmail api."""
     class _IdData:
-        def __init__(self) -> 'MessageHandler._IdData':
+        def __init__(self, includeSpamTrash=False) -> 'MessageHandler._IdData':
             self.nextPageToken = None
             self.index = -1  # Start with -1 because we increment at the beginning
             self.messages = []
+            self.includeSpamTrash = includeSpamTrash
 
-    def __init__(self, service) -> 'MessageHandler':
+    def __init__(self, service, includeSpamTrash=False) -> 'MessageHandler':
         self.service = service
 
-        self._id_data = self._IdData()
+        self._id_data = self._IdData(includeSpamTrash)
 
     def getNextId(self) -> str:
         """Returns the id of last received mail the first time the function is called,
@@ -23,7 +24,7 @@ class MessageHandler:
             if self._id_data.nextPageToken is None and self._id_data.index != -1:
                 # No more messages to fetch
                 return None
-            response = self.service.users().messages().list(userId='me', pageToken=self._id_data.nextPageToken).execute()
+            response = self.service.users().messages().list(userId='me', pageToken=self._id_data.nextPageToken, includeSpamTrash=self._id_data.includeSpamTrash).execute()
             self._id_data.nextPageToken = response.get('nextPageToken')
             new_messages = response.get('messages', [])
             if not new_messages:
@@ -35,6 +36,21 @@ class MessageHandler:
             # Just move to the next message in the current batch
             self._id_data.index += 1
             return self._id_data.messages[self._id_data.index]['id']
+
+    def trashMessage(self, message_id):
+        """Deletes the message with the specified id"""
+        try:
+            self.service.users().messages().trash(userId='me', id=message_id).execute()
+        except HttpError as error:
+            print(f'An error occurred: {error}')
+
+    def untrashMessage(self, message_id):
+        """Deletes the message with the specified id"""
+        try:
+            self.service.users().messages().untrash(userId='me', id=message_id).execute()
+            print(f"Untrashed message with ID: {message_id}")
+        except HttpError as error:
+            print(f'An error occurred: {error}')
 
     def getMessageTimestamp(self, message_id):
         """Returns the received timestamp of the message based on id"""
@@ -53,6 +69,20 @@ class MessageHandler:
         self._id_data.index = -1
         self._id_data.messages = []
         return self
+
+    def getSenderMailAddress(self, msg) -> str:
+        sender = None
+        mail = None
+        for header in msg['payload']['headers']:
+            if header['name'] == 'From':
+                sender = header['value']
+                start_idx = sender.find('<')
+                end_idx = sender.find('>', start_idx)
+                if start_idx != -1 and end_idx != -1:
+                    mail = sender[start_idx+1:end_idx]
+                elif start_idx == end_idx == -1:
+                    mail = sender
+        return mail
 
     def filterSenders(self, message_ids: list, sender_mail_addresses: list | str) -> list:
         """Returns a list of messages that are send by the specified sender mail adresses"""
