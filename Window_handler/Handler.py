@@ -1,8 +1,8 @@
 import curses
-import threading
 import time
+import threading
 
-class Handler:
+class WindowHandler:
     class ProcessWindow:
         def __init__(self, nlines, ncols, begin_y, begin_x):
             self.win = curses.newwin(nlines, ncols, begin_y, begin_x)
@@ -109,7 +109,7 @@ class Handler:
         self.out_win.scrollok(True)
         self.in_win.scrollok(True)
 
-    def main(self, stdscr: curses.window):
+    def main(self, fn: function, stdscr: curses.window):
         curses.curs_set(1)  # Set the cursor to visible
         curses.echo()  # Enable echoing of typed characters
 
@@ -120,6 +120,8 @@ class Handler:
         self.out_win.noutrefresh()
         self.in_win.noutrefresh()
         curses.doupdate()
+
+        threading.Thread(target=fn).start()
 
         try:
             while True:
