@@ -1,9 +1,21 @@
+import sys
 import curses
 import time
 import threading
 
-class WindowHandler:
-    class ProcessWindow:
+
+class _StdoutRedirector:
+    def __init__(self, window_handler: 'WindowHandler'):
+        self.window_handler = window_handler
+
+    def write(self, text: str):
+        if text.strip():  # Avoid printing blank lines
+            self.window_handler.print(text)
+
+    def flush(self):
+        pass  # Needed to satisfy Python's expectations of stdout
+
+class _ProcessWindow:
         def __init__(self, nlines, ncols, begin_y, begin_x):
             self.win = curses.newwin(nlines, ncols, begin_y, begin_x)
             self.line = 0
@@ -38,8 +50,6 @@ class WindowHandler:
 
         def clrtoeol(self):
             self.win.clrtoeol()
-        def __init__(self):
-            self.data = None  # Placeholder for data, to be set by the main application
 
         def resetIdData(self):
             pass  # Placeholder for resetting ID data
@@ -50,18 +60,28 @@ class WindowHandler:
         def getMessageTimestamp(self, id):
             pass  # Placeholder for getting the timestamp of a message by ID
 
-    def __init__(self):
-        self.out_win = None
-        self.in_win = None
 
-    def run(self):
+class WindowHandler:
+    def __init__(self):
+        self.main_process_tread = None
+        self.initialized = False
+
+    def run(self, fn: callable, args: tuple = ()):
+        self.main_process_tread = threading.Thread(target=fn, args=args)
+        threading.Thread(target=fn, args=args).start()
         curses.wrapper(self.main)
+
+    def start_after_initialized(self):
+        while not self.initialized:
+            time.sleep(0.1)
+        self.main_process_tread.start()
 
     def print(self, string: str):
         timestamp = time.strftime('%H:%M:%S')
         msg = f"[{timestamp}] {string}\n"
         self.out_win.print(msg)
         self.out_win.noutrefresh()
+        self.in_win.noutrefresh()
         curses.doupdate()
 
     def draw_border(self, win: curses.window):
@@ -103,13 +123,13 @@ class WindowHandler:
         mid_x = width // 2
 
         # Create subwindows for output and input
-        self.out_win = self.ProcessWindow(height - 2, mid_x - 2, 1, 1)
+        self.out_win = _ProcessWindow(height - 2, mid_x - 2, 1, 1)
         self.in_win = curses.newwin(height - 2, width - mid_x - 3, 1, mid_x + 1)
 
         self.out_win.scrollok(True)
         self.in_win.scrollok(True)
 
-    def main(self, fn: function, stdscr: curses.window):
+    def main(self, stdscr: curses.window):
         curses.curs_set(1)  # Set the cursor to visible
         curses.echo()  # Enable echoing of typed characters
 
@@ -121,7 +141,9 @@ class WindowHandler:
         self.in_win.noutrefresh()
         curses.doupdate()
 
-        threading.Thread(target=fn).start()
+        sys.stdout = _StdoutRedirector(self)  # Redirect all print calls
+
+        self.initialized = True
 
         try:
             while True:
@@ -143,4 +165,6 @@ class WindowHandler:
                 curses.doupdate()
         finally:
             curses.endwin()
-            
+
+if __name__ == "__main__":
+    pass
