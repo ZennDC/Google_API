@@ -715,37 +715,40 @@ class TimedEvent(Event):
 
         return event_obj    
 
-"""
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
-creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-service = build("calendar", "v3", credentials=creds)
+if __name__ == "__main__":
+    # Example usage of the Calendar and Event classes
+    from googleapiclient.errors import HttpError
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
 
-d = '23/06/2024'
-d2 = '23/06/2024'
+    SCOPES = ["https://www.googleapis.com/auth/calendar"]
+    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    service = build("calendar", "v3", credentials=creds)
 
-t = '22u40'
-t2 = '22u55'
+    d = '23/06/2024'
+    d2 = '23/06/2024'
+
+    t = '22u40'
+    t2 = '22u55'
 
 
-#calendar = Calendar('title').build()
-event_obj = Event('event', d, d2).build()
+    #calendar = Calendar('title').build()
+    event_obj = Event('event', d, d2).build()
 
-#created_event = service.events().insert(calendarId='primary', body=event_obj).execute()
-#print(created_event)"""
-"""
-calendar = service.calendars().get(calendarId='primary').execute()
-print(calendar)
-'''page_token = None
-while True:
-  calendar_list = service.calendarList().list(pageToken=page_token).execute()
-  for calendar_list_entry in calendar_list['items']:
-    print(calendar_list_entry['summary'])
-  page_token = calendar_list.get('nextPageToken')
-  if not page_token:
-    break'''
+    #created_event = service.events().insert(calendarId='primary', body=event_obj).execute()
+    #print(created_event)
+    
+    calendar = service.calendars().get(calendarId='primary').execute()
+    print(calendar)
+    page_token = None
+    while True:
+        calendar_list = service.calendarList().list(pageToken=page_token).execute()
+        for calendar_list_entry in calendar_list['items']:
+            print(calendar_list_entry['summary'])
+        page_token = calendar_list.get('nextPageToken')
+        if not page_token:
+            break
 
-calendar_list_entry = service.calendarList().get(calendarId='primary').execute()
-print(calendar_list_entry)"""
+    calendar_list_entry = service.calendarList().get(calendarId='primary').execute()
+    print(calendar_list_entry)

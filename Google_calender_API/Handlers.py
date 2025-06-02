@@ -1,7 +1,5 @@
 import re
-
 from googleapiclient.errors import HttpError
-
 from Google_API.Google_calender_API.Objects import Event, TimedEvent, Calendar, CalendarList
 
 
@@ -218,5 +216,3 @@ class CalendarHandler:
                 print(f'Calendar {calendar_name} does not exist.')
         except HttpError as error:
             print(f"An error occurred: {error}")
-
-    

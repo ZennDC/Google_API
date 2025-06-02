@@ -1,6 +1,6 @@
 import base64
-
 from googleapiclient.errors import HttpError
+
 
 class MessageHandler:
     """A message handler for the gmail api."""
