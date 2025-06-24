@@ -37,41 +37,37 @@ class MessageHandler:
             self._id_data.index += 1
             return self._id_data.messages[self._id_data.index]['id']
 
-    def resetIdData(self):
+    def resetIdData(self) -> None:
         """Resets the getNextId function to start at the newest message"""
         self._id_data.nextPageToken = None
         self._id_data.index = -1
         self._id_data.messages = []
         return self
 
-    def trashMessage(self, message_id):
+    def trashMessage(self, msg_id: str) -> None:
         """Deletes the message with the specified id"""
         try:
-            self.service.users().messages().trash(userId='me', id=message_id).execute()
+            self.service.users().messages().trash(userId='me', id=msg_id).execute()
         except HttpError as error:
             print(f'An error occurred: {error}')
 
-    def untrashMessage(self, message_id):
+    def untrashMessage(self, msg_id: str) -> None:
         """Undeletes the message with the specified id"""
         try:
-            self.service.users().messages().untrash(userId='me', id=message_id).execute()
-            print(f"Untrashed message with ID: {message_id}")
+            self.service.users().messages().untrash(userId='me', id=msg_id).execute()
+            print(f"Untrashed message with ID: {msg_id}")
         except HttpError as error:
             print(f'An error occurred: {error}')
 
-    def getMessageTimestamp(self, message_id):
+    def getMessageTimestamp(self, msg_id: str) -> str:
         """Returns the received timestamp of the message based on id"""
-        message = self.service.users().messages().get(userId='me', id=message_id).execute()
+        message = self.service.users().messages().get(userId='me', id=msg_id, format='minimal').execute()
         timestamp = int(message['internalDate'])  # The timestamp is in milliseconds since the Unix epoch
         return timestamp
 
-    def getMessage(self, message_id):
-        """Returns the message based on id"""
-        message = self.service.users().messages().get(userId='me', id=message_id).execute()
-        return message
-
-    def getSenderMailAddress(self, msg) -> str:
+    def getSenderMailAddress(self, msg_id: str) -> str:
         """Returns the mail adress of the sender"""
+        msg = self.service.users().messages().get(userId='me', id=msg_id, format='metadata').execute()
         sender = None
         mail = None
         for header in msg['payload']['headers']:
@@ -85,9 +81,10 @@ class MessageHandler:
                     mail = sender
         return mail
 
-    def getSubject(self, msg) -> str:
+    def getSubject(self, msg_id: str) -> str:
         """Returns the subject of the e-mail"""
         subject = None
+        msg = self.service.users().messages().get(userId='me', id=msg_id, format='metadata').execute()
         for header in msg['payload']['headers']:
             if header['name'] == 'Subject':
                 subject = header['value']
@@ -95,93 +92,55 @@ class MessageHandler:
 
     def filterOnSenders(self, message_ids: list, sender_mail_addresses: list | str) -> list:
         """Returns a list of messages that are send by the specified sender mail adresses"""
-        if isinstance(sender_mail_addresses, str):
-            sender_mail_addresses = [sender_mail_addresses]
-
-        print(f"Started filtering for following mail adresses:\n{sender_mail_addresses}")
+        print(f"Filtering {len(message_ids)} message(s) on sender mail adresses...")
         filtered_messages = []
 
-        i = 0
+        if isinstance(sender_mail_addresses, str):
+            sender_mail_addresses = [sender_mail_addresses]
+        
         for msg_id in message_ids:
-            i = i + 1
             # Get the message details
-            msg = self.service.users().messages().get(userId='me', id=msg_id).execute()
-
-            # Get the sender's email address
-            sender = None
-            sender_mail = None
-            for header in msg['payload']['headers']:
-                if header['name'] == 'From':
-                    sender = header['value']
-                    start_idx = sender.find('<')
-                    end_idx = sender.find('>', start_idx)
-                    if start_idx != -1 and end_idx != -1:
-                        sender_mail = sender[start_idx+1:end_idx]
-                    elif start_idx == end_idx == -1:
-                        sender_mail = sender
+            sender_mail = self.getSenderMailAddress(msg_id)
 
             if sender_mail in sender_mail_addresses:
                 filtered_messages.append(msg_id)
-                status = 'message found'
-            else:
-                status = 'none'
-                
-            print(f'{i}: Message ID: {msg_id} Status: {status}')
 
+        print(f"Filtering complete, result: {len(filtered_messages)} message(s).")
         return filtered_messages
 
     def filterSendersMulti(self, message_ids: list, *sender_mail_addresses_args: list | str) -> list[list[str]]:
         """Returns a list of messages that are send by the specified sender mail adresses"""
+        print(f"Filtering {len(message_ids)} message(s) on sender mail adresses...")
         filtered_messages = [[] for _ in range(len(sender_mail_addresses_args))]
 
         for sender_mail_addresses in sender_mail_addresses_args:
             if isinstance(sender_mail_addresses, str):
                 sender_mail_addresses = [sender_mail_addresses]
-
-        print(f"Started filtering for following mail adresses:\n{sender_mail_addresses_args}")
         
-
-        i = 0
         for msg_id in message_ids:
-            i = i + 1
-            # Get the message details
             try:
-                msg = self.service.users().messages().get(userId='me', id=msg_id).execute()
-
                 # Get the sender's email address
-                sender = None
-                sender_mail = None
-                for header in msg['payload']['headers']:
-                    if header['name'] == 'From':
-                        sender = header['value']
-                        start_idx = sender.find('<')
-                        end_idx = sender.find('>', start_idx)
-                        if start_idx != -1 and end_idx != -1:
-                            sender_mail = sender[start_idx+1:end_idx]
-                        elif start_idx == end_idx == -1:
-                            sender_mail = sender
+                sender_mail = self.getSenderMailAddress(msg_id)
 
                 for index, sender_mail_addresses in enumerate(sender_mail_addresses_args):
                     if sender_mail in sender_mail_addresses:
                         filtered_messages[index].append(msg_id)
 
-                print(f'{i}: Message ID: {msg_id}')
-
             except HttpError as error:
                 print(f"An error occurred: {error}")
 
+        print(f"Filtering complete, result: {len(filtered_messages)} message(s).")
         return filtered_messages
 
-    def filterOnKeywords(self, message_ids: list, keywords: list[str]):
+    def filterOnKeywords(self, message_ids: list, keywords: list[str]) -> list:
+        """Filters the subjects of the messages with the provided ids on keywords."""
         print(f"Filtering {len(message_ids)} message(s) on keywords...")
         filtered = []
         
         for msg_id in message_ids:
             # Get the message details
             try:
-                msg = self.service.users().messages().get(userId='me', id=msg_id, format='metadata').execute()
-
-                subject = self.getSubject(msg)
+                subject = self.getSubject(msg_id)
 
                 for keyword in keywords:
                     if keyword in subject.lower():
@@ -194,10 +153,10 @@ class MessageHandler:
         print(f"Filtering complete, result: {len(filtered)} message(s).")
         return filtered
 
-    def getMessageBody(self, msg_id: str):
+    def getMessageBody(self, msg_id: str) -> str:
         """Extracts the body of the message with specified id."""
         
-        message = self.getMessage(msg_id)
+        message = self.service.users().messages().get(userId='me', id=msg_id, format='full').execute()
 
         if 'parts' in message['payload']:
             for part in message['payload']['parts']:
