@@ -1,1 +1,1 @@
-from Handlers import MessageHandler, LabelHandler
+from .Handlers import MessageHandler, LabelHandler

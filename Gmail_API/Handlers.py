@@ -37,6 +37,13 @@ class MessageHandler:
             self._id_data.index += 1
             return self._id_data.messages[self._id_data.index]['id']
 
+    def resetIdData(self):
+        """Resets the getNextId function to start at the newest message"""
+        self._id_data.nextPageToken = None
+        self._id_data.index = -1
+        self._id_data.messages = []
+        return self
+
     def trashMessage(self, message_id):
         """Deletes the message with the specified id"""
         try:
@@ -45,7 +52,7 @@ class MessageHandler:
             print(f'An error occurred: {error}')
 
     def untrashMessage(self, message_id):
-        """Deletes the message with the specified id"""
+        """Undeletes the message with the specified id"""
         try:
             self.service.users().messages().untrash(userId='me', id=message_id).execute()
             print(f"Untrashed message with ID: {message_id}")
@@ -63,14 +70,8 @@ class MessageHandler:
         message = self.service.users().messages().get(userId='me', id=message_id).execute()
         return message
 
-    def resetIdData(self):
-        """Resets the getNextId function to start at the newest message"""
-        self._id_data.nextPageToken = None
-        self._id_data.index = -1
-        self._id_data.messages = []
-        return self
-
     def getSenderMailAddress(self, msg) -> str:
+        """Returns the mail adress of the sender"""
         sender = None
         mail = None
         for header in msg['payload']['headers']:
@@ -84,7 +85,15 @@ class MessageHandler:
                     mail = sender
         return mail
 
-    def filterSenders(self, message_ids: list, sender_mail_addresses: list | str) -> list:
+    def getSubject(self, msg) -> str:
+        """Returns the subject of the e-mail"""
+        subject = None
+        for header in msg['payload']['headers']:
+            if header['name'] == 'Subject':
+                subject = header['value']
+        return subject
+
+    def filterOnSenders(self, message_ids: list, sender_mail_addresses: list | str) -> list:
         """Returns a list of messages that are send by the specified sender mail adresses"""
         if isinstance(sender_mail_addresses, str):
             sender_mail_addresses = [sender_mail_addresses]
@@ -162,6 +171,28 @@ class MessageHandler:
                 print(f"An error occurred: {error}")
 
         return filtered_messages
+
+    def filterOnKeywords(self, message_ids: list, keywords: list[str]):
+        print(f"Filtering {len(message_ids)} message(s) on keywords...")
+        filtered = []
+        
+        for msg_id in message_ids:
+            # Get the message details
+            try:
+                msg = self.service.users().messages().get(userId='me', id=msg_id, format='metadata').execute()
+
+                subject = self.getSubject(msg)
+
+                for keyword in keywords:
+                    if keyword in subject.lower():
+                        filtered.append(msg_id)
+                        break
+
+            except HttpError as error:
+                print(f"An error occurred: {error}")
+
+        print(f"Filtering complete, result: {len(filtered)} message(s).")
+        return filtered
 
     def getMessageBody(self, msg_id: str):
         """Extracts the body of the message with specified id."""
