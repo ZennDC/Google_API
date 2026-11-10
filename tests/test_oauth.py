@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 
 from google.auth.exceptions import GoogleAuthError
 
-from oauth.auth import _resolve_file_path, get_credentials, get_credentials_notoken
+from google_api.oauth.auth import (
+    _resolve_file_path,
+    get_credentials,
+    get_credentials_notoken,
+)
 
 
 class TestOAuth(unittest.TestCase):
@@ -37,7 +41,7 @@ class TestOAuth(unittest.TestCase):
         resolved_name = _resolve_file_path("token.json", ["token.json"])
         self.assertTrue(resolved_name.endswith("token.json"))
 
-    @patch("oauth.auth.Credentials.from_authorized_user_file")
+    @patch("google_api.oauth.auth.Credentials.from_authorized_user_file")
     def test_get_credentials_valid_cached_token(self, mock_from_file):
         token_path = os.path.join(self.temp_dir.name, "token.json")
         with open(token_path, "w") as f:
@@ -58,7 +62,7 @@ class TestOAuth(unittest.TestCase):
             token_path, ["https://www.googleapis.com/auth/gmail.readonly"]
         )
 
-    @patch("oauth.auth.Credentials.from_authorized_user_file")
+    @patch("google_api.oauth.auth.Credentials.from_authorized_user_file")
     def test_get_credentials_invalid_user_file_fallback(self, mock_from_file):
         token_path = os.path.join(self.temp_dir.name, "token.json")
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
@@ -69,7 +73,7 @@ class TestOAuth(unittest.TestCase):
 
         mock_from_file.side_effect = ValueError("Corrupt file")
 
-        with patch("oauth.auth.InstalledAppFlow.from_client_secrets_file") as mock_flow_cls:
+        with patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file") as mock_flow_cls:
             mock_flow = MagicMock()
             mock_creds = MagicMock()
             mock_creds.to_json.return_value = '{"token": "new"}'
@@ -83,7 +87,7 @@ class TestOAuth(unittest.TestCase):
             )
             self.assertEqual(creds, mock_creds)
 
-    @patch("oauth.auth.Credentials.from_authorized_user_file")
+    @patch("google_api.oauth.auth.Credentials.from_authorized_user_file")
     def test_get_credentials_expired_token_refreshed(self, mock_from_file):
         token_path = os.path.join(self.temp_dir.name, "token.json")
         with open(token_path, "w") as f:
@@ -106,7 +110,7 @@ class TestOAuth(unittest.TestCase):
         with open(token_path) as f:
             self.assertIn("refreshed", f.read())
 
-    @patch("oauth.auth.Credentials.from_authorized_user_file")
+    @patch("google_api.oauth.auth.Credentials.from_authorized_user_file")
     def test_get_credentials_refresh_failure_falls_back_to_flow(self, mock_from_file):
         token_path = os.path.join(self.temp_dir.name, "token.json")
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
@@ -121,7 +125,7 @@ class TestOAuth(unittest.TestCase):
         mock_creds.refresh.side_effect = GoogleAuthError("Token revoked")
         mock_from_file.return_value = mock_creds
 
-        with patch("oauth.auth.InstalledAppFlow.from_client_secrets_file") as mock_flow_cls:
+        with patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file") as mock_flow_cls:
             mock_flow = MagicMock()
             fresh_creds = MagicMock()
             fresh_creds.to_json.return_value = '{"token": "fresh"}'
@@ -135,7 +139,7 @@ class TestOAuth(unittest.TestCase):
             )
             self.assertEqual(creds, fresh_creds)
 
-    @patch("oauth.auth.Credentials.from_authorized_user_file")
+    @patch("google_api.oauth.auth.Credentials.from_authorized_user_file")
     def test_get_credentials_scope_mismatch_triggers_flow(self, mock_from_file):
         token_path = os.path.join(self.temp_dir.name, "token.json")
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
@@ -150,7 +154,7 @@ class TestOAuth(unittest.TestCase):
         mock_creds.has_scopes.return_value = False
         mock_from_file.return_value = mock_creds
 
-        with patch("oauth.auth.InstalledAppFlow.from_client_secrets_file") as mock_flow_cls:
+        with patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file") as mock_flow_cls:
             mock_flow = MagicMock()
             new_creds = MagicMock()
             new_creds.to_json.return_value = '{"new": true}'
@@ -164,7 +168,7 @@ class TestOAuth(unittest.TestCase):
             )
             self.assertEqual(creds, new_creds)
 
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_launches_flow_when_no_token(self, mock_flow_from_file):
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
         token_path = os.path.join(self.temp_dir.name, "new_token.json")
@@ -188,7 +192,7 @@ class TestOAuth(unittest.TestCase):
         mock_flow.run_local_server.assert_called_once_with(port=0)
         self.assertTrue(os.path.exists(token_path))
 
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_flow_failure_raises(self, mock_flow_from_file):
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
         with open(secret_path, "w") as f:
@@ -205,7 +209,7 @@ class TestOAuth(unittest.TestCase):
                 client_secret_file=secret_path,
             )
 
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_notoken(self, mock_flow_from_file):
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
         with open(secret_path, "w") as f:
@@ -231,7 +235,7 @@ class TestOAuth(unittest.TestCase):
                 client_secret_file=missing_secret,
             )
 
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_custom_port_and_host(self, mock_flow_from_file):
         secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
         with open(secret_path, "w") as f:
@@ -261,7 +265,7 @@ class TestOAuth(unittest.TestCase):
 
     @patch("builtins.print")
     @patch("builtins.input", return_value="fake_auth_code_123")
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_headless_console_flow(
         self, mock_flow_from_file, mock_input, mock_print
     ):
@@ -290,7 +294,7 @@ class TestOAuth(unittest.TestCase):
 
     @patch("builtins.print")
     @patch("builtins.input", return_value="http://localhost:8080/?code=extracted_code_456&state=xyz")
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_headless_full_url_paste(
         self, mock_flow_from_file, mock_input, mock_print
     ):
@@ -317,7 +321,7 @@ class TestOAuth(unittest.TestCase):
     @patch.dict(os.environ, {"GOOGLE_API_HEADLESS": "1"})
     @patch("builtins.print")
     @patch("builtins.input", return_value="env_auth_code")
-    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    @patch("google_api.oauth.auth.InstalledAppFlow.from_client_secrets_file")
     def test_get_credentials_headless_via_env_var(
         self, mock_flow_from_file, mock_input, mock_print
     ):
@@ -342,15 +346,15 @@ class TestOAuth(unittest.TestCase):
 
 
 class TestFactory(unittest.TestCase):
-    @patch("oauth.factory.build")
-    @patch("oauth.factory.get_credentials")
+    @patch("google_api.oauth.factory.build")
+    @patch("google_api.oauth.factory.get_credentials")
     def test_build_service_with_defaults(self, mock_get_creds, mock_build):
         mock_creds = MagicMock()
         mock_get_creds.return_value = mock_creds
         mock_service = MagicMock()
         mock_build.return_value = mock_service
 
-        from oauth.factory import GMAIL_SCOPES, build_service
+        from google_api.oauth.factory import GMAIL_SCOPES, build_service
 
         service = build_service("gmail", "v1")
         self.assertEqual(service, mock_service)
@@ -358,93 +362,93 @@ class TestFactory(unittest.TestCase):
         self.assertEqual(mock_get_creds.call_args.kwargs["scopes"], GMAIL_SCOPES)
         mock_build.assert_called_once_with("gmail", "v1", credentials=mock_creds)
 
-    @patch("oauth.factory.build")
+    @patch("google_api.oauth.factory.build")
     def test_build_service_explicit_credentials(self, mock_build):
         mock_creds = MagicMock()
         mock_service = MagicMock()
         mock_build.return_value = mock_service
 
-        from oauth.factory import build_service
+        from google_api.oauth.factory import build_service
 
         service = build_service("calendar", "v3", credentials=mock_creds)
         self.assertEqual(service, mock_service)
         mock_build.assert_called_once_with("calendar", "v3", credentials=mock_creds)
 
     def test_build_service_unknown_service_without_scopes_raises(self):
-        from oauth.factory import build_service
+        from google_api.oauth.factory import build_service
 
         with self.assertRaises(ValueError):
             build_service("unknown_service", "v1")
 
-    @patch("oauth.factory.build_service")
+    @patch("google_api.oauth.factory.build_service")
     def test_get_gmail_handler_message(self, mock_build_service):
         mock_service = MagicMock()
         mock_build_service.return_value = mock_service
 
-        from gmail_api.handlers import MessageHandler
-        from oauth.factory import get_gmail_handler
+        from google_api.gmail_api.handlers import MessageHandler
+        from google_api.oauth.factory import get_gmail_handler
 
         handler = get_gmail_handler(handler_type="message", include_spam_trash=True)
         self.assertIsInstance(handler, MessageHandler)
         self.assertEqual(handler.service, mock_service)
         self.assertTrue(handler.include_spam_trash)
 
-    @patch("oauth.factory.build_service")
+    @patch("google_api.oauth.factory.build_service")
     def test_get_gmail_handler_label(self, mock_build_service):
         mock_service = MagicMock()
         mock_build_service.return_value = mock_service
 
-        from gmail_api.handlers import LabelHandler
-        from oauth.factory import get_gmail_handler
+        from google_api.gmail_api.handlers import LabelHandler
+        from google_api.oauth.factory import get_gmail_handler
 
         handler = get_gmail_handler(handler_type="label")
         self.assertIsInstance(handler, LabelHandler)
         self.assertEqual(handler.service, mock_service)
 
     def test_get_gmail_handler_invalid_type_raises(self):
-        from oauth.factory import get_gmail_handler
+        from google_api.oauth.factory import get_gmail_handler
 
         with self.assertRaises(ValueError):
             get_gmail_handler(handler_type="invalid")
 
-    @patch("oauth.factory.build_service")
+    @patch("google_api.oauth.factory.build_service")
     def test_get_calendar_handler_event(self, mock_build_service):
         mock_service = MagicMock()
         mock_build_service.return_value = mock_service
 
-        from google_calendar_api.handlers import EventHandler
-        from oauth.factory import get_calendar_handler
+        from google_api.google_calendar_api.handlers import EventHandler
+        from google_api.oauth.factory import get_calendar_handler
 
         handler = get_calendar_handler(handler_type="event")
         self.assertIsInstance(handler, EventHandler)
         self.assertEqual(handler.service, mock_service)
 
-    @patch("oauth.factory.build_service")
+    @patch("google_api.oauth.factory.build_service")
     def test_get_calendar_handler_calendar(self, mock_build_service):
         mock_service = MagicMock()
         mock_build_service.return_value = mock_service
 
-        from google_calendar_api.handlers import CalendarHandler
-        from oauth.factory import get_calendar_handler
+        from google_api.google_calendar_api.handlers import CalendarHandler
+        from google_api.oauth.factory import get_calendar_handler
 
         handler = get_calendar_handler(handler_type="calendar")
         self.assertIsInstance(handler, CalendarHandler)
         self.assertEqual(handler.service, mock_service)
 
     def test_get_calendar_handler_invalid_type_raises(self):
-        from oauth.factory import get_calendar_handler
+        from google_api.oauth.factory import get_calendar_handler
 
         with self.assertRaises(ValueError):
             get_calendar_handler(handler_type="invalid")
 
-    @patch("oauth.factory.build_service")
+    @patch("google_api.oauth.factory.build_service")
     def test_convenience_helpers(self, mock_build_service):
         mock_service = MagicMock()
         mock_build_service.return_value = mock_service
 
-        from gmail_api.handlers import LabelHandler, MessageHandler
-        from google_calendar_api.handlers import EventHandler
-        from oauth.factory import (
+        from google_api.gmail_api.handlers import LabelHandler, MessageHandler
+        from google_api.google_calendar_api.handlers import EventHandler
+        from google_api.oauth.factory import (
             get_calendar_service,
             get_event_handler,
             get_gmail_service,

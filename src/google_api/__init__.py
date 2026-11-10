@@ -10,6 +10,7 @@ from .google_calendar_api import (
     TimedEvent,
     convert_date,
     convert_time,
+    load_template,
 )
 from .oauth import (
     CALENDAR_SCOPES,
@@ -44,6 +45,7 @@ __all__ = [
     "build_service",
     "convert_date",
     "convert_time",
+    "load_template",
     "get_calendar_handler",
     "get_calendar_service",
     "get_credentials",

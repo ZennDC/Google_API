@@ -4,7 +4,7 @@ from typing import Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import Resource, build
 
-from oauth.auth import get_credentials
+from .auth import get_credentials
 
 logger = logging.getLogger("google_api")
 
@@ -131,7 +131,7 @@ def get_gmail_handler(
         service: Optional pre-existing Gmail Resource service.
         **kwargs: Additional arguments passed to the handler or build_service.
     """
-    from gmail_api.handlers import LabelHandler, MessageHandler
+    from ..gmail_api.handlers import LabelHandler, MessageHandler
 
     handler_type_lower = handler_type.lower()
     if handler_type_lower not in ("message", "label"):
@@ -200,7 +200,7 @@ def get_calendar_handler(
         service: Optional pre-existing Calendar Resource service.
         **kwargs: Additional arguments passed to the handler or build_service.
     """
-    from google_calendar_api.handlers import CalendarHandler, EventHandler
+    from ..google_calendar_api.handlers import CalendarHandler, EventHandler
 
     handler_type_lower = handler_type.lower()
     if handler_type_lower not in ("event", "calendar"):

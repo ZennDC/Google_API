@@ -175,5 +175,10 @@ credentials*.json
 client_secret*.json
 token*.json
 *token*.json
-.vscode
-.ruff_cache
+.vscode/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/

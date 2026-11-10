@@ -6,6 +6,7 @@ from .objects import (
     TimedEvent,
     convert_date,
     convert_time,
+    load_template,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "TimedEvent",
     "convert_date",
     "convert_time",
+    "load_template",
 ]

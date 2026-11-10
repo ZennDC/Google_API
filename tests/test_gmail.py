@@ -5,8 +5,12 @@ from unittest.mock import MagicMock
 import httplib2
 from googleapiclient.errors import HttpError
 
-from gmail_api.handlers import LabelHandler, MessageHandler, _extract_text_body
-from gmail_api.objects import Label, Message
+from google_api.gmail_api.handlers import (
+    LabelHandler,
+    MessageHandler,
+    _extract_text_body,
+)
+from google_api.gmail_api.objects import Label, Message
 
 
 class TestGmailObjects(unittest.TestCase):
