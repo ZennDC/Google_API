@@ -1,50 +1,162 @@
 # Google-API
 
-A Google API implementation by ZennDC.
+A clean, modern, and Pythonic wrapper for Google Gmail and Calendar APIs by ZennDC.
+
+[![Python: >=3.10](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+---
 
 ## Features
 
-- **OAuth & Credentials**:
-  - Desktop authentication with automatic local redirect server.
-  - Headless / Docker authentication support via manual console code copy-paste (`headless=True` or `GOOGLE_API_HEADLESS=1`).
-  - Customizable port, host, and bind address (`port`, `host`, `bind_addr`).
-  - Automatic token persistence and refresh.
-- **Automatic Service & Handler Factory**:
-  - `build_service(service_name, version, ...)`: Build any authorized Google API discovery service under the hood.
-  - `get_gmail_handler()` / `get_message_handler()` / `get_label_handler()`: Instantiate Gmail handlers with automated credential retrieval.
-  - `get_calendar_handler()` / `get_event_handler()`: Instantiate Google Calendar handlers directly.
-- **Gmail API**: Complete message and label management.
-- **Google Calendar API**: Event planning, recurrence handling, calendar management.
+- **Encapsulated OAuth & Factory**:
+  - Automatically manages default scopes (`GMAIL_SCOPES`, `CALENDAR_SCOPES`).
+  - Desktop OAuth with automatic local redirect web server.
+  - Headless / remote server / Docker support with console copy-paste (`headless=True` or `GOOGLE_API_HEADLESS=1`).
+  - Token persistence and silent background refresh.
+  - In-memory credential option without disk persistence (`get_credentials_notoken`).
+- **Gmail Automation (`google_api.gmail`)**:
+  - **`MessageHandler`**: Search queries, paginated message iteration (`iter_messages`), structured metadata extraction, MIME body decoding (plain text & HTML fallback), message composition, drafts creation, batch modification, batch deletion, and trash/untrash actions.
+  - **`LabelHandler`**: Complete label CRUD, system vs. user label inspection, label visibility, and automatic color mapping.
+- **Calendar Automation (`google_api.calendar`)**:
+  - **`EventHandler`**: Event creation (`plan_event`), pagination (`iter_events`), Dutch/ISO date and time conversions, recurrence support, and duplicate detection/cleanup.
+  - **`CalendarHandler`**: Primary and secondary calendar CRUD, calendar list entry management, and ID resolution by summary name.
+- **Developer-Ready Architecture**:
+  - Full PEP 561 typed (`py.typed`).
+  - Comprehensive unit test suite with 100% offline mocks.
+  - Clean `src/` layout configured with `hatchling`.
 
-## Quickstart
+---
 
-### Using the Automatic Handler Factory
+## Installation
 
-```python
-from google_api import get_message_handler, get_calendar_handler
+Install in editable mode for local development:
 
-# Initializes credentials and Gmail v1 service under the hood
-message_handler = get_message_handler()
-for msg_id in message_handler.iter_messages(max_results=10):
-    print(msg_id)
-
-# Initializes credentials and Calendar v3 service under the hood
-calendar_handler = get_calendar_handler()
+```bash
+pip install -e .
 ```
 
-### Headless / Docker Authentication
+To include test and lint dependencies:
 
-When running in headless environments (e.g., Docker, SSH, remote VM):
-
-```python
-from google_api import get_credentials
-
-# Prompts for manual authorization code paste in the console
-creds = get_credentials(scopes=["https://www.googleapis.com/auth/gmail.readonly"], headless=True)
+```bash
+pip install -e ".[dev]"
 ```
 
-Or set the environment variable:
+---
+
+## Prerequisites: Google Cloud Credentials
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create or select a project, and enable the **Gmail API** and **Google Calendar API**.
+3. Configure the **OAuth consent screen** and create OAuth 2.0 Client IDs (Application Type: **Desktop app**).
+4. Download the client secret JSON file and place it in your workspace root as `client_secret.json` (or set the file path via `client_secret_file="..."`).
+
+---
+
+## Quickstart Examples
+
+### 1. Gmail: Read Recent Emails
+
+```python
+from google_api import get_message_handler
+
+# Scopes and service construction are handled automatically
+handler = get_message_handler()
+
+for msg_id in handler.iter_messages(query="is:unread", max_results=5):
+    sender = handler.get_sender_address(msg_id)
+    subject = handler.get_subject(msg_id)
+    print(f"[{sender}] {subject}")
+```
+
+### 2. Gmail: Manage Labels
+
+```python
+from google_api import get_label_handler
+
+label_handler = get_label_handler()
+
+# Automatically creates the label if it doesn't already exist
+label_id = label_handler.get_or_create_label_id("Automated")
+print(f"Label ready with ID: {label_id}")
+```
+
+### 3. Calendar: Plan a New Event
+
+```python
+import datetime
+from google_api import TimedEvent, get_event_handler
+
+event_handler = get_event_handler()
+
+tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%d/%m/%Y")
+
+event = TimedEvent(
+    summary="Project Review",
+    start_date=tomorrow,
+    start_time="14:00",
+    end_date=tomorrow,
+    end_time="15:30",
+    time_format="%H:%M",
+)
+event.description = "Automated event planned via Google_API"
+
+created = event_handler.plan_event("primary", event.build())
+print(f"Created event: {created.get('id')}")
+```
+
+### 4. OAuth: Headless / Docker / SSH
+
+When a web browser cannot automatically open:
+
+```python
+from google_api import get_credentials, GMAIL_SCOPES
+
+creds = get_credentials(scopes=GMAIL_SCOPES, headless=True)
+```
+*Or simply set the environment variable:*
 ```bash
 export GOOGLE_API_HEADLESS=1
 ```
 
+---
+
+## Project Structure
+
+```
+├── examples/
+│   ├── calendar/      # Calendar quickstart, event planning & duplicate removal
+│   ├── gmail/         # Gmail reading, search, pagination & label examples
+│   └── oauth/         # Local browser flow, headless flow & in-memory auth
+├── src/google_api/
+│   ├── calendar/      # Calendar & event handlers, models, and JSON templates
+│   ├── gmail/         # Message & label handlers, message/label objects
+│   ├── oauth/         # Credentials discovery, flow handlers & factory builders
+│   ├── py.typed       # PEP 561 marker
+│   └── __init__.py    # Top-level API exports
+├── tests/             # Offline unit test suites (Calendar, Gmail, OAuth)
+└── pyproject.toml     # Packaging and dependency specification (PEP 621)
+```
+
+---
+
+## Running Tests
+
+All unit tests run completely offline without needing real Google API credentials or network access:
+
+```bash
+pytest -v
+```
+
+Code quality and formatting checks:
+
+```bash
+ruff check src/ tests/ examples/
+ruff format --check src/ tests/ examples/
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
