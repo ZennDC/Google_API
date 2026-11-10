@@ -13,13 +13,13 @@ def main():
         service = build("gmail", "v1", credentials=creds)
         handler = MessageHandler(service)
 
-        msg_id = handler.getNextId()
+        msg_id = next(handler.iter_messages(), None)
         if not msg_id:
             print("No messages found.")
             return
 
-        sender_email = handler.getSenderMailAddress(msg_id)
-        subject = handler.getSubject(msg_id)
+        sender_email = handler.get_sender_address(msg_id)
+        subject = handler.get_subject(msg_id)
         print(f"Message ID: {msg_id}")
         print(f"Sender: {sender_email}")
         print(f"Subject: {subject}")

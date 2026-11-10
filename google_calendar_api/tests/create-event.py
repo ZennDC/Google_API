@@ -30,7 +30,7 @@ def main():
         event.description = "Automated test event created via Google_API"
         event_obj = event.build()
 
-        created = event_handler.planEvent("primary", event_obj)
+        created = event_handler.plan_event("primary", event_obj)
         print(
             f"Event created successfully! Summary: '{created.get('summary')}', ID: {created.get('id')}"
         )

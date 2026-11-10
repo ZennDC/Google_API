@@ -15,7 +15,7 @@ def main():
 
         print("Fetching first 10 message IDs using MessageHandler pagination...")
         for i in range(1, 11):
-            msg_id = handler.getNextId()
+            msg_id = next(handler.iter_messages(), None)
             if not msg_id:
                 print(f"No more messages found after {i - 1} messages.")
                 break

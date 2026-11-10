@@ -16,7 +16,7 @@ def main():
         # Collect the last 5 messages
         message_ids = []
         for _ in range(5):
-            mid = handler.getNextId()
+            mid = next(handler.iter_messages(), None)
             if mid:
                 message_ids.append(mid)
             else:
@@ -27,7 +27,7 @@ def main():
             return
 
         # Target sender to find
-        first_sender = handler.getSenderMailAddress(message_ids[0])
+        first_sender = handler.get_sender_address(message_ids[0])
         print(f"Searching for messages from: {first_sender}")
         matching = handler.filterSenders(message_ids, [first_sender])
         print(f"Found {len(matching)} matching message(s): {matching}")

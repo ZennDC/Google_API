@@ -13,12 +13,12 @@ def main():
         service = build("gmail", "v1", credentials=creds)
         handler = MessageHandler(service)
 
-        msg_id = handler.getNextId()
+        msg_id = next(handler.iter_messages(), None)
         if not msg_id:
             print("No messages found.")
             return
 
-        body = handler.getMessageBody(msg_id)
+        body = handler.get_message_body(msg_id)
         print(f"Message ID: {msg_id}")
         print("Body preview (first 200 chars):")
         print(body[:200] if body else "Empty body")

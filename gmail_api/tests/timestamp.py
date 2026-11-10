@@ -13,12 +13,12 @@ def main():
         service = build("gmail", "v1", credentials=creds)
         handler = MessageHandler(service)
 
-        msg_id = handler.getNextId()
+        msg_id = next(handler.iter_messages(), None)
         if not msg_id:
             print("No messages found.")
             return
 
-        timestamp = handler.getMessageTimestamp(msg_id)
+        timestamp = handler.get_message_timestamp(msg_id)
         print(f"Message ID: {msg_id}, Timestamp: {timestamp}")
 
     except HttpError as error:

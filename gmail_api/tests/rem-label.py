@@ -15,7 +15,7 @@ def main():
         message_handler = MessageHandler(service)
         label_handler = LabelHandler(service)
 
-        msg_id = message_handler.getNextId()
+        msg_id = next(message_handler.iter_messages(), None)
         if not msg_id:
             print("No messages found.")
             return

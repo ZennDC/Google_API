@@ -1,16 +1,20 @@
+import logging
 import re
+from datetime import datetime, time
 from typing import ClassVar
 
 from googleapiclient.errors import HttpError
 
-from ..logging_config import logger
 from .objects import Calendar, Event, TimedEvent
+
+logger = logging.getLogger("google_api")
 
 
 class EventHandler:
-    DATE_PATTERN = r"(\d{1,2}) (\w+) (\d{4})"
-    TIME_PATTERN = r"\d{2}:\d{2}"
-    NUM: ClassVar[dict[str, int]] = {
+    """Handles event operations for Google Calendar."""
+
+    # Retained for backwards compatibility with Dutch calendar text representations
+    DUTCH_MONTHS: ClassVar[dict[str, int]] = {
         "januari": 1,
         "februari": 2,
         "maart": 3,
@@ -24,15 +28,20 @@ class EventHandler:
         "november": 11,
         "december": 12,
     }
+    DATE_PATTERN = r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})"
+    TIME_PATTERN = r"\d{1,2}:\d{2}"
 
-    def __init__(self, service) -> "EventHandler":
+    def __init__(self, service) -> None:
         self.service = service
 
-    def planEvent(self, calendar_id: str, event_obj: Event | TimedEvent) -> dict:
+    def plan_event(
+        self, calendar_id: str, event_obj: Event | TimedEvent | dict
+    ) -> dict:
         try:
+            body = event_obj.build() if hasattr(event_obj, "build") else event_obj
             created_event = (
                 self.service.events()
-                .insert(calendarId=calendar_id, body=event_obj)
+                .insert(calendarId=calendar_id, body=body)
                 .execute()
             )
             logger.info(f"Event created: {created_event['id']}")
@@ -41,25 +50,38 @@ class EventHandler:
             logger.error(f"Failed to create event in calendar {calendar_id}: {error}")
             raise
 
-    def convert_date(self, date: str) -> str:
-        matches = re.findall(self.DATE_PATTERN, date)
-        if not matches:
-            raise ValueError(f"Incorrect date format: {date}")
-        date_match = matches[0]
-        try:
-            day = int(date_match[0])
-            _month = date_match[1].lower()
-            month = self.NUM[_month]
-            year = int(date_match[2])
-            return f"{day}/{month}/{year}"
-        except KeyError:
-            logger.error(f"Month name '{date_match[1]}' not found in dictionary.")
-            raise
-        except (ValueError, IndexError) as e:
-            logger.error(f"Unable to parse date structure from '{date}': {e}")
-            raise
+    def convert_date(self, date_str: str) -> str:
+        """Parses dates from standard formats (%d/%m/%Y, %Y-%m-%d) or Dutch natural language (e.g. '15 januari 2026').
+
+        Returns date formatted as 'D/M/YYYY'.
+        """
+        stripped = date_str.strip()
+        # Attempt standard numeric formats first
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                parsed_dt = datetime.strptime(stripped, fmt)
+                return f"{parsed_dt.day}/{parsed_dt.month}/{parsed_dt.year}"
+            except ValueError:
+                pass
+
+        # Match natural language tokens
+        match = re.search(self.DATE_PATTERN, stripped)
+        if not match:
+            raise ValueError(f"Incorrect date format: {date_str}")
+
+        day_str, month_token, year_str = match.groups()
+        month_lower = month_token.lower()
+        if month_lower not in self.DUTCH_MONTHS:
+            logger.error(f"Month name '{month_token}' not found in dictionary.")
+            raise KeyError(f"Unknown month name: {month_token}")
+
+        day = int(day_str)
+        month = self.DUTCH_MONTHS[month_lower]
+        year = int(year_str)
+        return f"{day}/{month}/{year}"
 
     def convert_time(self, time_str: str) -> tuple[str, str]:
+        """Extracts start and end times matching HH:MM from a string."""
         time_match = re.findall(self.TIME_PATTERN, time_str)
         if len(time_match) < 2:
             raise ValueError(
@@ -69,61 +91,115 @@ class EventHandler:
 
     @staticmethod
     def is_greater(time1: str, time2: str) -> bool:
-        h1, m1 = map(int, time1.split(":"))
-        h2, m2 = map(int, time2.split(":"))
-        total_minutes1 = h1 * 60 + m1
-        total_minutes2 = h2 * 60 + m2
-        return total_minutes1 >= total_minutes2
+        """Compares two time strings using datetime.time objects.
 
-    def getEvents(self, calendar_id: str, day: str) -> list[dict]:
-        start_of_day = f"{day}T00:00:00Z"
-        end_of_day = f"{day}T23:59:59Z"
+        Supports ISO formats like 'HH:MM' or 'HH:MM:SS'.
+        Returns True if time1 >= time2.
+        """
+        t1 = time.fromisoformat(time1.strip())
+        t2 = time.fromisoformat(time2.strip())
+        return t1 >= t2
 
-        events_result = (
-            self.service.events()
-            .list(
-                calendarId=calendar_id,
-                timeMin=start_of_day,
-                timeMax=end_of_day,
-                singleEvents=True,
-                orderBy="startTime",
-                timeZone="UTC",
-            )
-            .execute()
-        )
+    def get_events(
+        self,
+        calendar_id: str,
+        day: str,
+        time_zone: str = "Europe/Brussels",
+    ) -> list[dict]:
+        """Retrieves events for a given calendar and day or ISO timestamp range.
+
+        If `day` is already an ISO timestamp (contains 'T'), it is passed directly as timeMin.
+        If `day` is a date (YYYY-MM-DD or DD/MM/YYYY), the day boundaries are computed
+        and queried using the specified target timeZone.
+        """
+        if "T" in day:
+            time_min = day
+            time_max = None
+        else:
+            # Normalize day into YYYY-MM-DD
+            if "/" in day:
+                d, m, y = day.split("/")
+                iso_day = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+            else:
+                iso_day = day
+
+            time_min = f"{iso_day}T00:00:00Z"
+            time_max = f"{iso_day}T23:59:59Z"
+
+        request_kwargs = {
+            "calendarId": calendar_id,
+            "timeMin": time_min,
+            "singleEvents": True,
+            "orderBy": "startTime",
+            "timeZone": time_zone,
+        }
+        if time_max:
+            request_kwargs["timeMax"] = time_max
+
+        events_result = self.service.events().list(**request_kwargs).execute()
         return events_result.get("items", [])
 
-    def delEvent(self, calendar_id: str, event_id: str) -> None:
+    def delete_event(self, calendar_id: str, event_id: str) -> None:
         self.service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         logger.info(f"Deleted event {event_id} from calendar {calendar_id}")
 
-    def removeDuplicates(self, calendar_id: str, day: str) -> None:
-        events = self.getEvents(calendar_id, day)
+    def remove_duplicates(self, calendar_id: str, day: str) -> None:
+        events = self.get_events(calendar_id, day)
         seen = set()
         for event in events:
             summary = event.get("summary")
             start = event.get("start", {}).get("dateTime")
             key = (summary, start)
             if key in seen:
-                self.delEvent(calendar_id, event["id"])
+                self.delete_event(calendar_id, event["id"])
             else:
                 seen.add(key)
 
 
 class CalendarHandler:
-    def __init__(self, service) -> "CalendarHandler":
+    def __init__(self, service) -> None:
         self.service = service
 
+    def find_calendar_id_by_name(self, calendar_name: str) -> str | None:
+        """Finds a calendar ID by summary/name, paginating through all available calendars."""
+        if calendar_name == "primary":
+            return "primary"
+
+        page_token = None
+        while True:
+            try:
+                response = (
+                    self.service.calendarList().list(pageToken=page_token).execute()
+                )
+            except HttpError as error:
+                logger.error(
+                    f"Error fetching calendar list while looking for '{calendar_name}': {error}"
+                )
+                raise
+
+            for calendar in response.get("items", []):
+                if (
+                    calendar.get("summary") == calendar_name
+                    or calendar.get("id") == calendar_name
+                ):
+                    return calendar.get("id")
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        return None
+
     def get_calendar_id(self, calendar_name: str) -> str | None:
-        try:
-            calendar_list = self.service.calendarList().list().execute()
-            for calendar in calendar_list.get("items", []):
-                if calendar["summary"] == calendar_name:
-                    return calendar["id"]
-            return None
-        except HttpError as error:
-            logger.error(f"Error fetching calendar ID for '{calendar_name}': {error}")
-            raise
+        """Convenience alias for find_calendar_id_by_name."""
+        return self.find_calendar_id_by_name(calendar_name)
+
+    def _resolve_calendar_id(self, calendar_id_or_name: str) -> str | None:
+        """Resolves calendar ID directly or falls back to name lookup."""
+        if calendar_id_or_name == "primary" or "@" in calendar_id_or_name:
+            return calendar_id_or_name
+        cal_id = self.find_calendar_id_by_name(calendar_id_or_name)
+        return cal_id or calendar_id_or_name
 
     def create_calendar(self, calendar_obj: Calendar | dict) -> str:
         try:
@@ -137,77 +213,75 @@ class CalendarHandler:
             logger.error(f"Failed to create calendar: {error}")
             raise
 
-    def clear_calendar(self, calendar_name: str) -> None:
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+    def clear_calendar(self, calendar_id: str) -> None:
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return
         try:
-            self.service.calendars().clear(calendarId=id).execute()
-            logger.info(f"Cleared calendar: {calendar_name}")
+            self.service.calendars().clear(calendarId=cal_id).execute()
+            logger.info(f"Cleared calendar: {calendar_id}")
         except HttpError as error:
-            logger.error(f"Failed to clear calendar {calendar_name}: {error}")
+            logger.error(f"Failed to clear calendar {calendar_id}: {error}")
             raise
 
-    def delete_calendar(self, calendar_name: str) -> None:
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+    def delete_calendar(self, calendar_id: str) -> None:
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return
         try:
-            self.service.calendars().delete(calendarId=id).execute()
-            logger.info(f"Deleted calendar: {calendar_name}")
+            self.service.calendars().delete(calendarId=cal_id).execute()
+            logger.info(f"Deleted calendar: {calendar_id}")
         except HttpError as error:
-            logger.error(f"Failed to delete calendar {calendar_name}: {error}")
+            logger.error(f"Failed to delete calendar {calendar_id}: {error}")
             raise
 
-    def get_calendar(self, calendar_name: str) -> dict | None:
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+    def get_calendar(self, calendar_id: str) -> dict | None:
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return None
         try:
-            return self.service.calendars().get(calendarId=id).execute()
+            return self.service.calendars().get(calendarId=cal_id).execute()
         except HttpError as error:
-            logger.error(f"Failed to get calendar {calendar_name}: {error}")
+            logger.error(f"Failed to get calendar {calendar_id}: {error}")
             raise
 
-    def update_calendar(self, calendar_name: str, body: dict) -> None:
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+    def update_calendar(self, calendar_id: str, body: dict) -> None:
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return
         try:
-            self.service.calendars().update(calendarId=id, body=body).execute()
-            logger.info(f"Updated calendar metadata for: {calendar_name}")
+            self.service.calendars().update(calendarId=cal_id, body=body).execute()
+            logger.info(f"Updated calendar metadata for: {calendar_id}")
         except HttpError as error:
-            logger.error(f"Failed to update calendar {calendar_name}: {error}")
+            logger.error(f"Failed to update calendar {calendar_id}: {error}")
             raise
 
-    def delete_calendar_from_list(self, calendar_name: str) -> None:
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+    def delete_calendar_from_list(self, calendar_id: str) -> None:
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return
         try:
-            self.service.calendarList().delete(calendarId=id).execute()
-            logger.info(f"Deleted calendar from list: {calendar_name}")
+            self.service.calendarList().delete(calendarId=cal_id).execute()
+            logger.info(f"Deleted calendar from list: {calendar_id}")
         except HttpError as error:
-            logger.error(
-                f"Failed to delete calendar from list {calendar_name}: {error}"
-            )
+            logger.error(f"Failed to delete calendar from list {calendar_id}: {error}")
             raise
 
-    def get_calendar_list_entry(self, calendar_name: str) -> dict | None:
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+    def get_calendar_list_entry(self, calendar_id: str) -> dict | None:
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return None
         try:
-            return self.service.calendarList().get(calendarId=id).execute()
+            return self.service.calendarList().get(calendarId=cal_id).execute()
         except HttpError as error:
             logger.error(
-                f"Failed to get calendar list entry for {calendar_name}: {error}"
+                f"Failed to get calendar list entry for {calendar_id}: {error}"
             )
             raise
 
@@ -237,17 +311,17 @@ class CalendarHandler:
                 break
         return calendars
 
-    def update_calendar_list_entry(self, calendar_name: str, body: dict) -> None:
+    def update_calendar_list_entry(self, calendar_id: str, body: dict) -> None:
         """Updates the user's personal calendar entry (colors, notifications, hidden state)."""
-        id = self.get_calendar_id(calendar_name)
-        if not id:
-            logger.warning(f"Calendar {calendar_name} does not exist.")
+        cal_id = self._resolve_calendar_id(calendar_id)
+        if not cal_id:
+            logger.warning(f"Calendar {calendar_id} does not exist.")
             return
         try:
-            self.service.calendarList().update(calendarId=id, body=body).execute()
-            logger.info(f"Updated calendar list entry for: {calendar_name}")
+            self.service.calendarList().update(calendarId=cal_id, body=body).execute()
+            logger.info(f"Updated calendar list entry for: {calendar_id}")
         except HttpError as error:
             logger.error(
-                f"Failed to update calendar list entry for {calendar_name}: {error}"
+                f"Failed to update calendar list entry for {calendar_id}: {error}"
             )
             raise

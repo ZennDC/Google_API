@@ -19,7 +19,7 @@ def main():
             "%d/%m/%Y"
         )
         print(f"Checking for and removing duplicates on: {tomorrow}")
-        event_handler.removeDuplicates("primary", tomorrow)
+        event_handler.remove_duplicates("primary", tomorrow)
         print("Duplicate check complete.")
 
     except HttpError as error:

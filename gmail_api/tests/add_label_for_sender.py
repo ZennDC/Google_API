@@ -20,12 +20,12 @@ def main():
         label_name = "SenderTestLabel"
         label_id = label_handler.get_or_create_label_id(label_name)
 
-        msg_id = message_handler.getNextId()
+        msg_id = next(message_handler.iter_messages(), None)
         if not msg_id:
             print("No messages found.")
             return
 
-        sender = message_handler.getSenderMailAddress(msg_id)
+        sender = message_handler.get_sender_address(msg_id)
         print(f"Applying label '{label_name}' to message from: {sender}")
         label_handler.add_label_to_message(msg_id, label_id)
         print("Done.")
