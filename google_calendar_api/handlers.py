@@ -50,6 +50,50 @@ class EventHandler:
             logger.error(f"Failed to create event in calendar {calendar_id}: {error}")
             raise
 
+    def get_event(self, calendar_id: str, event_id: str) -> dict:
+        """Retrieves a single event by ID."""
+        try:
+            return (
+                self.service.events()
+                .get(calendarId=calendar_id, eventId=event_id)
+                .execute()
+            )
+        except HttpError as error:
+            logger.error(
+                f"Failed to fetch event {event_id} from calendar {calendar_id}: {error}"
+            )
+            raise
+
+    def update_event(
+        self,
+        calendar_id: str,
+        event_id: str,
+        event_obj: Event | TimedEvent | dict,
+        patch: bool = True,
+    ) -> dict:
+        """Updates an existing event using events().patch or events().update."""
+        try:
+            body = event_obj.build() if hasattr(event_obj, "build") else event_obj
+            if patch:
+                updated_event = (
+                    self.service.events()
+                    .patch(calendarId=calendar_id, eventId=event_id, body=body)
+                    .execute()
+                )
+            else:
+                updated_event = (
+                    self.service.events()
+                    .update(calendarId=calendar_id, eventId=event_id, body=body)
+                    .execute()
+                )
+            logger.info(f"Event updated: {updated_event.get('id', event_id)}")
+            return updated_event
+        except HttpError as error:
+            logger.error(
+                f"Failed to update event {event_id} in calendar {calendar_id}: {error}"
+            )
+            raise
+
     def convert_date(self, date_str: str) -> str:
         """Parses dates from standard formats (%d/%m/%Y, %Y-%m-%d) or Dutch natural language (e.g. '15 januari 2026').
 
@@ -106,7 +150,7 @@ class EventHandler:
         day: str,
         time_zone: str = "Europe/Brussels",
     ) -> list[dict]:
-        """Retrieves events for a given calendar and day or ISO timestamp range.
+        """Retrieves events for a given calendar and day or ISO timestamp range, paginating through all results.
 
         If `day` is already an ISO timestamp (contains 'T'), it is passed directly as timeMin.
         If `day` is a date (YYYY-MM-DD or DD/MM/YYYY), the day boundaries are computed
@@ -136,8 +180,24 @@ class EventHandler:
         if time_max:
             request_kwargs["timeMax"] = time_max
 
-        events_result = self.service.events().list(**request_kwargs).execute()
-        return events_result.get("items", [])
+        events: list[dict] = []
+        page_token = None
+        while True:
+            if page_token:
+                request_kwargs["pageToken"] = page_token
+            try:
+                events_result = self.service.events().list(**request_kwargs).execute()
+            except HttpError as error:
+                logger.error(
+                    f"Failed to fetch events for calendar {calendar_id}: {error}"
+                )
+                raise
+            events.extend(events_result.get("items", []))
+            page_token = events_result.get("nextPageToken")
+            if not page_token:
+                break
+
+        return events
 
     def delete_event(self, calendar_id: str, event_id: str) -> None:
         self.service.events().delete(calendarId=calendar_id, eventId=event_id).execute()

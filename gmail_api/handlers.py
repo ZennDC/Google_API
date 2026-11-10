@@ -2,10 +2,11 @@ import base64
 import email.utils
 import logging
 from collections.abc import Iterator
+from email.message import EmailMessage
 
 from googleapiclient.errors import HttpError
 
-from .objects import Message
+from .objects import Label, Message
 
 logger = logging.getLogger("google_api")
 
@@ -100,6 +101,149 @@ class MessageHandler:
             logger.info(f"Untrashed message with ID: {msg_id}")
         except HttpError as error:
             logger.error(f"Failed to untrash message {msg_id}: {error}")
+            raise
+
+    def delete_message(self, msg_id: str) -> None:
+        """Permanently deletes the message with the specified ID."""
+        try:
+            self.service.users().messages().delete(userId="me", id=msg_id).execute()
+            logger.info(f"Permanently deleted message with ID: {msg_id}")
+        except HttpError as error:
+            logger.error(f"Failed to delete message {msg_id}: {error}")
+            raise
+
+    def send_message(
+        self,
+        to: str | list[str],
+        subject: str = "",
+        body: str = "",
+        content_type: str = "plain",
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        thread_id: str | None = None,
+        raw_message: str | bytes | None = None,
+    ) -> dict:
+        """Sends an email message.
+
+        Can accept recipient(s), subject, body, etc. or a pre-encoded raw MIME message.
+        """
+        try:
+            if raw_message is not None:
+                if isinstance(raw_message, bytes):
+                    encoded_message = base64.urlsafe_b64encode(raw_message).decode("utf-8")
+                else:
+                    encoded_message = raw_message
+            else:
+                msg = EmailMessage()
+                msg["To"] = ", ".join(to) if isinstance(to, list) else to
+                msg["Subject"] = subject
+                if cc:
+                    msg["Cc"] = ", ".join(cc) if isinstance(cc, list) else cc
+                if bcc:
+                    msg["Bcc"] = ", ".join(bcc) if isinstance(bcc, list) else bcc
+                msg.set_content(body, subtype=content_type)
+                encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+
+            send_body = {"raw": encoded_message}
+            if thread_id:
+                send_body["threadId"] = thread_id
+
+            result = (
+                self.service.users()
+                .messages()
+                .send(userId="me", body=send_body)
+                .execute()
+            )
+            logger.info(f"Sent message with ID: {result.get('id')}")
+            return result
+        except HttpError as error:
+            logger.error(f"Failed to send message: {error}")
+            raise
+
+    def create_draft(
+        self,
+        to: str | list[str] | None = None,
+        subject: str = "",
+        body: str = "",
+        content_type: str = "plain",
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        thread_id: str | None = None,
+        raw_message: str | bytes | None = None,
+    ) -> dict:
+        """Creates an email draft.
+
+        Can accept recipient(s), subject, body, etc. or a pre-encoded raw MIME message.
+        """
+        try:
+            if raw_message is not None:
+                if isinstance(raw_message, bytes):
+                    encoded_message = base64.urlsafe_b64encode(raw_message).decode("utf-8")
+                else:
+                    encoded_message = raw_message
+            else:
+                msg = EmailMessage()
+                if to:
+                    msg["To"] = ", ".join(to) if isinstance(to, list) else to
+                if subject:
+                    msg["Subject"] = subject
+                if cc:
+                    msg["Cc"] = ", ".join(cc) if isinstance(cc, list) else cc
+                if bcc:
+                    msg["Bcc"] = ", ".join(bcc) if isinstance(bcc, list) else bcc
+                msg.set_content(body, subtype=content_type)
+                encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+
+            message_payload = {"raw": encoded_message}
+            if thread_id:
+                message_payload["threadId"] = thread_id
+
+            draft_body = {"message": message_payload}
+            result = (
+                self.service.users()
+                .drafts()
+                .create(userId="me", body=draft_body)
+                .execute()
+            )
+            logger.info(f"Created draft with ID: {result.get('id')}")
+            return result
+        except HttpError as error:
+            logger.error(f"Failed to create draft: {error}")
+            raise
+
+    def batch_modify(
+        self,
+        msg_ids: list[str],
+        add_label_ids: list[str] | None = None,
+        remove_label_ids: list[str] | None = None,
+    ) -> None:
+        """Modifies labels on multiple messages in a single batch API call."""
+        if not msg_ids:
+            return
+
+        body = {
+            "ids": msg_ids,
+            "addLabelIds": add_label_ids or [],
+            "removeLabelIds": remove_label_ids or [],
+        }
+        try:
+            self.service.users().messages().batchModify(userId="me", body=body).execute()
+            logger.info(f"Batch modified {len(msg_ids)} messages.")
+        except HttpError as error:
+            logger.error(f"Failed to batch modify messages: {error}")
+            raise
+
+    def batch_delete(self, msg_ids: list[str]) -> None:
+        """Permanently deletes multiple messages in a single batch API call."""
+        if not msg_ids:
+            return
+
+        body = {"ids": msg_ids}
+        try:
+            self.service.users().messages().batchDelete(userId="me", body=body).execute()
+            logger.info(f"Batch deleted {len(msg_ids)} messages.")
+        except HttpError as error:
+            logger.error(f"Failed to batch delete messages: {error}")
             raise
 
     def get_message(self, msg_id: str, format: str = "metadata") -> Message:
@@ -232,6 +376,73 @@ class LabelHandler:
         )
         logger.info(f"Message with ID {msg_id} successfully labeled.")
         return result
+
+    def remove_label_from_message(self, msg_id: str, label_id: str) -> dict:
+        """Removes the label from the message with the specified id."""
+        body = {"removeLabelIds": [label_id]}
+        try:
+            result = (
+                self.service.users()
+                .messages()
+                .modify(userId="me", id=msg_id, body=body)
+                .execute()
+            )
+            logger.info(f"Label {label_id} removed from message {msg_id}.")
+            return result
+        except HttpError as error:
+            logger.error(f"Failed to remove label {label_id} from message {msg_id}: {error}")
+            raise
+
+    def delete_label(self, label_id: str) -> None:
+        """Permanently deletes a label by its ID."""
+        try:
+            self.service.users().labels().delete(userId="me", id=label_id).execute()
+            logger.info(f"Deleted label with ID: {label_id}")
+        except HttpError as error:
+            logger.error(f"Failed to delete label {label_id}: {error}")
+            raise
+
+    def update_label(
+        self,
+        label_id: str,
+        name: str | None = None,
+        label: Label | None = None,
+        message_list_visibility: str | None = None,
+        label_list_visibility: str | None = None,
+        color: tuple[str, str] | None = None,
+    ) -> dict:
+        """Updates a label's name or metadata using labels().patch().
+
+        Accepts either a new name, a Label instance, or individual field updates.
+        """
+        if label is not None:
+            patch_body = label.build()
+        else:
+            patch_body = {}
+            if name is not None:
+                patch_body["name"] = name
+            if message_list_visibility is not None:
+                patch_body["messageListVisibility"] = message_list_visibility
+            if label_list_visibility is not None:
+                patch_body["labelListVisibility"] = label_list_visibility
+            if color is not None:
+                patch_body["color"] = {
+                    "textColor": color[0],
+                    "backgroundColor": color[1],
+                }
+
+        try:
+            updated = (
+                self.service.users()
+                .labels()
+                .patch(userId="me", id=label_id, body=patch_body)
+                .execute()
+            )
+            logger.info(f"Updated label {label_id} successfully.")
+            return updated
+        except HttpError as error:
+            logger.error(f"Failed to update label {label_id}: {error}")
+            raise
 
     def get_or_create_label_id(self, label: str) -> str:
         """Returns the ID of an existing label, or creates it and returns the new ID in minimal API calls."""

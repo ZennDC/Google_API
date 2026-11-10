@@ -179,6 +179,9 @@ class Event:
     location: str = ""
     description: str = ""
     summary: str = ""
+    recurrence: list[str] = field(default_factory=list)
+    attendees: list[dict | str] = field(default_factory=list)
+    reminders: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.title and self.summary:
@@ -198,13 +201,29 @@ class Event:
         )
 
     def _base_payload(self) -> dict:
-        payload = {
+        payload: dict[str, Any] = {
             "summary": self.title,
         }
         if self.location:
             payload["location"] = self.location
         if self.description:
             payload["description"] = self.description
+        if self.recurrence:
+            payload["recurrence"] = (
+                [self.recurrence]
+                if isinstance(self.recurrence, str)
+                else list(self.recurrence)
+            )
+        if self.attendees:
+            formatted_attendees = []
+            for attendee in self.attendees:
+                if isinstance(attendee, str):
+                    formatted_attendees.append({"email": attendee})
+                elif isinstance(attendee, dict):
+                    formatted_attendees.append(attendee)
+            payload["attendees"] = formatted_attendees
+        if self.reminders:
+            payload["reminders"] = self.reminders
         return payload
 
     def build(self) -> dict:

@@ -23,10 +23,7 @@ def main():
         label_name = "TEST_LABEL"
         label_id = label_handler.get_label_id(label_name)
         if label_id:
-            body = {"removeLabelIds": [label_id]}
-            service.users().messages().modify(
-                userId="me", id=msg_id, body=body
-            ).execute()
+            label_handler.remove_label_from_message(msg_id, label_id)
             print(f"Removed label {label_name} from message {msg_id}")
         else:
             print(f"Label {label_name} not found.")

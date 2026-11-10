@@ -62,8 +62,27 @@ def get_credentials(
     token_file: str | None = None,
     client_secret_file: str | None = None,
     save_token: bool = True,
+    headless: bool = False,
+    port: int = 0,
+    host: str = "localhost",
+    bind_addr: str | None = None,
+    open_browser: bool | None = None,
 ) -> Credentials:
-    """Returns authorized credentials, automatically refreshing or launching local OAuth flow if needed."""
+    """Returns authorized credentials, automatically refreshing or launching OAuth flow if needed.
+
+    Args:
+        scopes: OAuth scopes required.
+        token_file: Path to the cached token JSON file.
+        client_secret_file: Path to client_secret.json.
+        save_token: Whether to save/load credentials from token_file.
+        headless: If True, uses console copy-paste flow suitable for headless servers/Docker.
+            Can also be enabled via the GOOGLE_API_HEADLESS=1 environment variable.
+        port: Port for local redirect server (default: 0 for an arbitrary open port).
+        host: Hostname for local redirect server (default: 'localhost').
+        bind_addr: Optional bind address for local redirect server (e.g., '0.0.0.0' in Docker).
+        open_browser: Whether to automatically open the browser during local server flow.
+            Defaults to True unless headless is True.
+    """
     resolved_secret = _resolve_file_path(
         client_secret_file, ["client_secret.json", "credentials.json"]
     )
@@ -100,7 +119,35 @@ def get_credentials(
             )
         try:
             flow = InstalledAppFlow.from_client_secrets_file(resolved_secret, scopes)
-            creds = flow.run_local_server(port=0)
+
+            # Check headless flag or environment variable
+            is_headless = headless or os.environ.get("GOOGLE_API_HEADLESS", "").lower() in ("1", "true", "yes")
+
+            if is_headless:
+                flow.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+                auth_url, _ = flow.authorization_url(prompt="consent")
+                print("\n" + "=" * 60)
+                print("Headless Authentication Required:")
+                print(f"Please visit this URL in any browser:\n{auth_url}")
+                print("=" * 60 + "\n")
+                code = input("Enter the authorization code (or full redirect URL): ").strip()
+                if "code=" in code:
+                    # User pasted the whole redirect URL (e.g. from localhost redirect)
+                    from urllib.parse import parse_qs, urlparse
+                    parsed = urlparse(code)
+                    qs = parse_qs(parsed.query)
+                    code = qs.get("code", [code])[0]
+                flow.fetch_token(code=code)
+                creds = flow.credentials
+            else:
+                server_kwargs = {"port": port}
+                if host != "localhost":
+                    server_kwargs["host"] = host
+                if bind_addr is not None:
+                    server_kwargs["bind_addr"] = bind_addr
+                if open_browser is not None:
+                    server_kwargs["open_browser"] = open_browser
+                creds = flow.run_local_server(**server_kwargs)
 
             if save_token and resolved_token:
                 os.makedirs(os.path.dirname(resolved_token), exist_ok=True)
@@ -114,11 +161,22 @@ def get_credentials(
 
 
 def get_credentials_notoken(
-    scopes: list[str], client_secret_file: str | None = None
+    scopes: list[str],
+    client_secret_file: str | None = None,
+    headless: bool = False,
+    port: int = 0,
+    host: str = "localhost",
+    bind_addr: str | None = None,
+    open_browser: bool | None = None,
 ) -> Credentials:
     """Returns authorized credentials without writing or reading a token file."""
     return get_credentials(
         scopes=scopes,
         client_secret_file=client_secret_file,
         save_token=False,
+        headless=headless,
+        port=port,
+        host=host,
+        bind_addr=bind_addr,
+        open_browser=open_browser,
     )

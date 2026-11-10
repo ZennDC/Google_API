@@ -162,6 +162,36 @@ class TestCalendarDataclasses(unittest.TestCase):
         self.assertEqual(built["description"], "Tech convention")
         self.assertNotIn("dateTime", built["start"])
 
+    def test_event_build_with_recurrence_attendees_reminders(self):
+        event = Event(
+            title="Weekly Team Sync",
+            start_date="01/06/2026",
+            end_date="01/06/2026",
+            recurrence=["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+            attendees=["alice@example.com", {"email": "bob@example.com", "displayName": "Bob"}],
+            reminders={"useDefault": False, "overrides": [{"method": "popup", "minutes": 15}]},
+        )
+        built = event.build()
+        self.assertEqual(built["summary"], "Weekly Team Sync")
+        self.assertEqual(built["recurrence"], ["RRULE:FREQ=WEEKLY;BYDAY=MO"])
+        self.assertEqual(
+            built["attendees"],
+            [{"email": "alice@example.com"}, {"email": "bob@example.com", "displayName": "Bob"}],
+        )
+        self.assertEqual(
+            built["reminders"],
+            {"useDefault": False, "overrides": [{"method": "popup", "minutes": 15}]},
+        )
+
+        # Single string recurrence normalization
+        event_str_rec = Event(
+            title="Single string recurrence",
+            start_date="01/06/2026",
+            end_date="01/06/2026",
+            recurrence="RRULE:FREQ=DAILY",
+        )
+        self.assertEqual(event_str_rec.build()["recurrence"], ["RRULE:FREQ=DAILY"])
+
     def test_timed_event_build(self):
         timed = TimedEvent(
             title="Meeting",
@@ -336,6 +366,99 @@ class TestCalendarHandlers(unittest.TestCase):
         mock_service.events().delete.assert_called_once_with(
             calendarId="primary", eventId="ev_2"
         )
+
+    def test_get_event(self):
+        mock_service = MagicMock()
+        event_handler = EventHandler(mock_service)
+        mock_service.events().get().execute.return_value = {
+            "id": "ev_123",
+            "summary": "Sample Event",
+        }
+
+        result = event_handler.get_event("primary", "ev_123")
+        self.assertEqual(result["id"], "ev_123")
+        mock_service.events().get.assert_called_with(
+            calendarId="primary", eventId="ev_123"
+        )
+
+        resp = httplib2.Response({"status": 404, "reason": "Not Found"})
+        mock_service.events().get().execute.side_effect = HttpError(resp, b"Not Found")
+        with self.assertRaises(HttpError):
+            event_handler.get_event("primary", "missing_id")
+
+    def test_update_event(self):
+        mock_service = MagicMock()
+        event_handler = EventHandler(mock_service)
+
+        # Full update (PUT) with TimedEvent
+        mock_service.events().update().execute.return_value = {
+            "id": "ev_123",
+            "summary": "Updated Title",
+        }
+        ev = TimedEvent(
+            title="Updated Title",
+            start_date="01/01/2026",
+            end_date="01/01/2026",
+            start_time="09:00",
+            end_time="10:00",
+        )
+        updated = event_handler.update_event("primary", "ev_123", ev, patch=False)
+        self.assertEqual(updated["summary"], "Updated Title")
+        mock_service.events().update.assert_called_with(
+            calendarId="primary",
+            eventId="ev_123",
+            body=ev.build(),
+        )
+
+        # Patch (PATCH) with dict (default patch=True)
+        mock_service.events().patch().execute.return_value = {
+            "id": "ev_123",
+            "summary": "Patched Title",
+        }
+        patched = event_handler.update_event(
+            "primary", "ev_123", {"summary": "Patched Title"}
+        )
+        self.assertEqual(patched["summary"], "Patched Title")
+        mock_service.events().patch.assert_called_with(
+            calendarId="primary",
+            eventId="ev_123",
+            body={"summary": "Patched Title"},
+        )
+
+        # Error handling
+        resp = httplib2.Response({"status": 500, "reason": "Server Error"})
+        mock_service.events().patch().execute.side_effect = HttpError(
+            resp, b"Server Error"
+        )
+        with self.assertRaises(HttpError):
+            event_handler.update_event("primary", "ev_123", ev)
+
+    def test_get_events_pagination(self):
+        mock_service = MagicMock()
+        event_handler = EventHandler(mock_service)
+
+        mock_service.events().list().execute.side_effect = [
+            {
+                "items": [{"id": "ev_p1_1"}, {"id": "ev_p1_2"}],
+                "nextPageToken": "token_page_2",
+            },
+            {
+                "items": [{"id": "ev_p2_1"}],
+                "nextPageToken": None,
+            },
+        ]
+
+        events = event_handler.get_events("primary", "2026-06-01")
+        self.assertEqual(len(events), 3)
+        self.assertEqual([e["id"] for e in events], ["ev_p1_1", "ev_p1_2", "ev_p2_1"])
+
+        # Error handling
+        resp = httplib2.Response({"status": 500, "reason": "Server Error"})
+        mock_service.events().list().execute.side_effect = HttpError(
+            resp, b"Server Error"
+        )
+        with self.assertRaises(HttpError):
+            event_handler.get_events("primary", "2026-06-01")
 
 
 if __name__ == "__main__":

@@ -231,6 +231,242 @@ class TestOAuth(unittest.TestCase):
                 client_secret_file=missing_secret,
             )
 
+    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    def test_get_credentials_custom_port_and_host(self, mock_flow_from_file):
+        secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
+        with open(secret_path, "w") as f:
+            f.write('{"installed": {}}')
+
+        mock_flow = MagicMock()
+        mock_creds = MagicMock()
+        mock_flow.run_local_server.return_value = mock_creds
+        mock_flow_from_file.return_value = mock_flow
+
+        creds = get_credentials(
+            scopes=["scope"],
+            client_secret_file=secret_path,
+            save_token=False,
+            port=8085,
+            host="0.0.0.0",
+            bind_addr="0.0.0.0",
+            open_browser=False,
+        )
+        self.assertEqual(creds, mock_creds)
+        mock_flow.run_local_server.assert_called_once_with(
+            port=8085,
+            host="0.0.0.0",
+            bind_addr="0.0.0.0",
+            open_browser=False,
+        )
+
+    @patch("builtins.print")
+    @patch("builtins.input", return_value="fake_auth_code_123")
+    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    def test_get_credentials_headless_console_flow(
+        self, mock_flow_from_file, mock_input, mock_print
+    ):
+        secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
+        with open(secret_path, "w") as f:
+            f.write('{"installed": {}}')
+
+        mock_flow = MagicMock()
+        mock_creds = MagicMock()
+        mock_flow.credentials = mock_creds
+        mock_flow.authorization_url.return_value = ("https://auth.url", "state123")
+        mock_flow_from_file.return_value = mock_flow
+
+        creds = get_credentials(
+            scopes=["scope"],
+            client_secret_file=secret_path,
+            save_token=False,
+            headless=True,
+        )
+
+        self.assertEqual(creds, mock_creds)
+        self.assertEqual(mock_flow.redirect_uri, "urn:ietf:wg:oauth:2.0:oob")
+        mock_flow.authorization_url.assert_called_once_with(prompt="consent")
+        mock_flow.fetch_token.assert_called_once_with(code="fake_auth_code_123")
+        mock_flow.run_local_server.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("builtins.input", return_value="http://localhost:8080/?code=extracted_code_456&state=xyz")
+    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    def test_get_credentials_headless_full_url_paste(
+        self, mock_flow_from_file, mock_input, mock_print
+    ):
+        secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
+        with open(secret_path, "w") as f:
+            f.write('{"installed": {}}')
+
+        mock_flow = MagicMock()
+        mock_creds = MagicMock()
+        mock_flow.credentials = mock_creds
+        mock_flow.authorization_url.return_value = ("https://auth.url", "state123")
+        mock_flow_from_file.return_value = mock_flow
+
+        creds = get_credentials(
+            scopes=["scope"],
+            client_secret_file=secret_path,
+            save_token=False,
+            headless=True,
+        )
+
+        self.assertEqual(creds, mock_creds)
+        mock_flow.fetch_token.assert_called_once_with(code="extracted_code_456")
+
+    @patch.dict(os.environ, {"GOOGLE_API_HEADLESS": "1"})
+    @patch("builtins.print")
+    @patch("builtins.input", return_value="env_auth_code")
+    @patch("oauth.auth.InstalledAppFlow.from_client_secrets_file")
+    def test_get_credentials_headless_via_env_var(
+        self, mock_flow_from_file, mock_input, mock_print
+    ):
+        secret_path = os.path.join(self.temp_dir.name, "client_secret.json")
+        with open(secret_path, "w") as f:
+            f.write('{"installed": {}}')
+
+        mock_flow = MagicMock()
+        mock_creds = MagicMock()
+        mock_flow.credentials = mock_creds
+        mock_flow.authorization_url.return_value = ("https://auth.url", "state123")
+        mock_flow_from_file.return_value = mock_flow
+
+        creds = get_credentials(
+            scopes=["scope"],
+            client_secret_file=secret_path,
+            save_token=False,
+        )
+
+        self.assertEqual(creds, mock_creds)
+        mock_flow.fetch_token.assert_called_once_with(code="env_auth_code")
+
+
+class TestFactory(unittest.TestCase):
+    @patch("oauth.factory.build")
+    @patch("oauth.factory.get_credentials")
+    def test_build_service_with_defaults(self, mock_get_creds, mock_build):
+        mock_creds = MagicMock()
+        mock_get_creds.return_value = mock_creds
+        mock_service = MagicMock()
+        mock_build.return_value = mock_service
+
+        from oauth.factory import GMAIL_SCOPES, build_service
+
+        service = build_service("gmail", "v1")
+        self.assertEqual(service, mock_service)
+        mock_get_creds.assert_called_once()
+        self.assertEqual(mock_get_creds.call_args.kwargs["scopes"], GMAIL_SCOPES)
+        mock_build.assert_called_once_with("gmail", "v1", credentials=mock_creds)
+
+    @patch("oauth.factory.build")
+    def test_build_service_explicit_credentials(self, mock_build):
+        mock_creds = MagicMock()
+        mock_service = MagicMock()
+        mock_build.return_value = mock_service
+
+        from oauth.factory import build_service
+
+        service = build_service("calendar", "v3", credentials=mock_creds)
+        self.assertEqual(service, mock_service)
+        mock_build.assert_called_once_with("calendar", "v3", credentials=mock_creds)
+
+    def test_build_service_unknown_service_without_scopes_raises(self):
+        from oauth.factory import build_service
+
+        with self.assertRaises(ValueError):
+            build_service("unknown_service", "v1")
+
+    @patch("oauth.factory.build_service")
+    def test_get_gmail_handler_message(self, mock_build_service):
+        mock_service = MagicMock()
+        mock_build_service.return_value = mock_service
+
+        from gmail_api.handlers import MessageHandler
+        from oauth.factory import get_gmail_handler
+
+        handler = get_gmail_handler(handler_type="message", include_spam_trash=True)
+        self.assertIsInstance(handler, MessageHandler)
+        self.assertEqual(handler.service, mock_service)
+        self.assertTrue(handler.include_spam_trash)
+
+    @patch("oauth.factory.build_service")
+    def test_get_gmail_handler_label(self, mock_build_service):
+        mock_service = MagicMock()
+        mock_build_service.return_value = mock_service
+
+        from gmail_api.handlers import LabelHandler
+        from oauth.factory import get_gmail_handler
+
+        handler = get_gmail_handler(handler_type="label")
+        self.assertIsInstance(handler, LabelHandler)
+        self.assertEqual(handler.service, mock_service)
+
+    def test_get_gmail_handler_invalid_type_raises(self):
+        from oauth.factory import get_gmail_handler
+
+        with self.assertRaises(ValueError):
+            get_gmail_handler(handler_type="invalid")
+
+    @patch("oauth.factory.build_service")
+    def test_get_calendar_handler_event(self, mock_build_service):
+        mock_service = MagicMock()
+        mock_build_service.return_value = mock_service
+
+        from google_calendar_api.handlers import EventHandler
+        from oauth.factory import get_calendar_handler
+
+        handler = get_calendar_handler(handler_type="event")
+        self.assertIsInstance(handler, EventHandler)
+        self.assertEqual(handler.service, mock_service)
+
+    @patch("oauth.factory.build_service")
+    def test_get_calendar_handler_calendar(self, mock_build_service):
+        mock_service = MagicMock()
+        mock_build_service.return_value = mock_service
+
+        from google_calendar_api.handlers import CalendarHandler
+        from oauth.factory import get_calendar_handler
+
+        handler = get_calendar_handler(handler_type="calendar")
+        self.assertIsInstance(handler, CalendarHandler)
+        self.assertEqual(handler.service, mock_service)
+
+    def test_get_calendar_handler_invalid_type_raises(self):
+        from oauth.factory import get_calendar_handler
+
+        with self.assertRaises(ValueError):
+            get_calendar_handler(handler_type="invalid")
+
+    @patch("oauth.factory.build_service")
+    def test_convenience_helpers(self, mock_build_service):
+        mock_service = MagicMock()
+        mock_build_service.return_value = mock_service
+
+        from gmail_api.handlers import LabelHandler, MessageHandler
+        from google_calendar_api.handlers import EventHandler
+        from oauth.factory import (
+            get_calendar_service,
+            get_event_handler,
+            get_gmail_service,
+            get_label_handler,
+            get_message_handler,
+        )
+
+        svc_gmail = get_gmail_service()
+        self.assertEqual(svc_gmail, mock_service)
+
+        svc_cal = get_calendar_service()
+        self.assertEqual(svc_cal, mock_service)
+
+        msg_h = get_message_handler()
+        self.assertIsInstance(msg_h, MessageHandler)
+
+        lbl_h = get_label_handler()
+        self.assertIsInstance(lbl_h, LabelHandler)
+
+        evt_h = get_event_handler()
+        self.assertIsInstance(evt_h, EventHandler)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -293,6 +293,153 @@ class TestGmailHandlers(unittest.TestCase):
             userId="me", id="msg123", body={"addLabelIds": ["Label_1"]}
         )
 
+    def test_remove_label_from_message(self):
+        mock_service = MagicMock()
+        mock_modify = mock_service.users().messages().modify
+        mock_modify.return_value.execute.return_value = {"id": "msg123", "labelIds": []}
+        handler = LabelHandler(mock_service)
+        result = handler.remove_label_from_message("msg123", "Label_1")
+        self.assertEqual(result, {"id": "msg123", "labelIds": []})
+        mock_modify.assert_called_once_with(
+            userId="me", id="msg123", body={"removeLabelIds": ["Label_1"]}
+        )
+
+    def test_delete_label(self):
+        mock_service = MagicMock()
+        mock_delete = mock_service.users().labels().delete
+        handler = LabelHandler(mock_service)
+        handler.delete_label("Label_1")
+        mock_delete.assert_called_once_with(userId="me", id="Label_1")
+
+    def test_update_label_with_name_only(self):
+        mock_service = MagicMock()
+        mock_patch = mock_service.users().labels().patch
+        mock_patch.return_value.execute.return_value = {"id": "Label_1", "name": "Renamed"}
+        handler = LabelHandler(mock_service)
+        result = handler.update_label("Label_1", name="Renamed")
+        self.assertEqual(result, {"id": "Label_1", "name": "Renamed"})
+        mock_patch.assert_called_once_with(
+            userId="me", id="Label_1", body={"name": "Renamed"}
+        )
+
+    def test_update_label_with_label_object(self):
+        mock_service = MagicMock()
+        mock_patch = mock_service.users().labels().patch
+        handler = LabelHandler(mock_service)
+        label_obj = Label(
+            name="NewWork",
+            message_list_visibility="show",
+            label_list_visibility="labelShow",
+            color=("#FFFFFF", "#000000"),
+        )
+        handler.update_label("Label_1", label=label_obj)
+        mock_patch.assert_called_once_with(
+            userId="me",
+            id="Label_1",
+            body={
+                "name": "NewWork",
+                "messageListVisibility": "show",
+                "labelListVisibility": "labelShow",
+                "color": {"textColor": "#FFFFFF", "backgroundColor": "#000000"},
+            },
+        )
+
+    def test_delete_message(self):
+        mock_service = MagicMock()
+        mock_delete = mock_service.users().messages().delete
+        handler = MessageHandler(mock_service)
+        handler.delete_message("msg123")
+        mock_delete.assert_called_once_with(userId="me", id="msg123")
+
+    def test_send_message_basic(self):
+        mock_service = MagicMock()
+        mock_send = mock_service.users().messages().send
+        mock_send.return_value.execute.return_value = {"id": "msg_sent_1"}
+        handler = MessageHandler(mock_service)
+        result = handler.send_message(
+            to="recipient@example.com",
+            subject="Test Subject",
+            body="Hello World",
+            cc="cc@example.com",
+            bcc=["bcc1@example.com", "bcc2@example.com"],
+            thread_id="thread_999",
+        )
+        self.assertEqual(result, {"id": "msg_sent_1"})
+        call_kwargs = mock_send.call_args[1]
+        self.assertEqual(call_kwargs["userId"], "me")
+        self.assertEqual(call_kwargs["body"]["threadId"], "thread_999")
+        raw_b64 = call_kwargs["body"]["raw"]
+        raw_bytes = base64.urlsafe_b64decode(raw_b64.encode("utf-8"))
+        self.assertIn(b"To: recipient@example.com", raw_bytes)
+        self.assertIn(b"Subject: Test Subject", raw_bytes)
+        self.assertIn(b"Cc: cc@example.com", raw_bytes)
+        self.assertIn(b"Bcc: bcc1@example.com, bcc2@example.com", raw_bytes)
+        self.assertIn(b"Hello World", raw_bytes)
+
+    def test_send_message_raw_bytes(self):
+        mock_service = MagicMock()
+        mock_send = mock_service.users().messages().send
+        handler = MessageHandler(mock_service)
+        handler.send_message(to=[], raw_message=b"From: a@b.com\r\nSubject: Hi\r\n\r\nTest")
+        call_kwargs = mock_send.call_args[1]
+        self.assertEqual(
+            call_kwargs["body"]["raw"],
+            base64.urlsafe_b64encode(b"From: a@b.com\r\nSubject: Hi\r\n\r\nTest").decode("utf-8"),
+        )
+
+    def test_create_draft(self):
+        mock_service = MagicMock()
+        mock_create = mock_service.users().drafts().create
+        mock_create.return_value.execute.return_value = {"id": "draft_1", "message": {"id": "msg_d1"}}
+        handler = MessageHandler(mock_service)
+        result = handler.create_draft(
+            to=["to1@example.com", "to2@example.com"],
+            subject="Draft Subject",
+            body="Draft Body",
+        )
+        self.assertEqual(result["id"], "draft_1")
+        call_kwargs = mock_create.call_args[1]
+        self.assertEqual(call_kwargs["userId"], "me")
+        raw_b64 = call_kwargs["body"]["message"]["raw"]
+        raw_bytes = base64.urlsafe_b64decode(raw_b64.encode("utf-8"))
+        self.assertIn(b"To: to1@example.com, to2@example.com", raw_bytes)
+        self.assertIn(b"Draft Subject", raw_bytes)
+        self.assertIn(b"Draft Body", raw_bytes)
+
+    def test_batch_modify(self):
+        mock_service = MagicMock()
+        mock_batch_modify = mock_service.users().messages().batchModify
+        handler = MessageHandler(mock_service)
+        handler.batch_modify(["m1", "m2", "m3"], add_label_ids=["Label_A"], remove_label_ids=["UNREAD"])
+        mock_batch_modify.assert_called_once_with(
+            userId="me",
+            body={
+                "ids": ["m1", "m2", "m3"],
+                "addLabelIds": ["Label_A"],
+                "removeLabelIds": ["UNREAD"],
+            },
+        )
+
+        # Empty list should no-op
+        mock_batch_modify.reset_mock()
+        handler.batch_modify([])
+        mock_batch_modify.assert_not_called()
+
+    def test_batch_delete(self):
+        mock_service = MagicMock()
+        mock_batch_delete = mock_service.users().messages().batchDelete
+        handler = MessageHandler(mock_service)
+        handler.batch_delete(["m1", "m2"])
+        mock_batch_delete.assert_called_once_with(
+            userId="me",
+            body={"ids": ["m1", "m2"]},
+        )
+
+        # Empty list should no-op
+        mock_batch_delete.reset_mock()
+        handler.batch_delete([])
+        mock_batch_delete.assert_not_called()
+
     def test_extract_text_body_nested_multipart(self):
         plain_bytes = base64.urlsafe_b64encode(b"Plain text body").decode("ASCII")
         html_bytes = base64.urlsafe_b64encode(b"<p>HTML body</p>").decode("ASCII")

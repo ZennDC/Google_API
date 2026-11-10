@@ -7,12 +7,6 @@ from oauth import get_credentials
 SCOPES = ["https://www.googleapis.com/auth/gmail.labels"]
 
 
-def delete_label(service, label_id):
-    """Deletes a label in the user's mailbox."""
-    service.users().labels().delete(userId="me", id=label_id).execute()
-    print(f"Label with ID: {label_id} deleted successfully.")
-
-
 def main():
     try:
         creds = get_credentials(SCOPES)
@@ -22,7 +16,8 @@ def main():
         label_name = "Example Label"
         label_id = label_handler.get_label_id(label_name)
         if label_id:
-            delete_label(service, label_id)
+            label_handler.delete_label(label_id)
+            print(f'Label with ID: {label_id} deleted successfully.')
         else:
             print(f'Label "{label_name}" not found.')
 
