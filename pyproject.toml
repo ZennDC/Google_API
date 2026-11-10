@@ -44,6 +44,12 @@ dev = [
     "pytest>=8.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/ZennDC/Google_API"
+Documentation = "https://github.com/ZennDC/Google_API#readme"
+Repository = "https://github.com/ZennDC/Google_API.git"
+"Bug Tracker" = "https://github.com/ZennDC/Google_API/issues"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/google_api"]
 

@@ -490,6 +490,21 @@ class TestGmailHandlers(unittest.TestCase):
         body = _extract_text_body(nested_payload)
         self.assertEqual(body, "Plain text body")
 
+    def test_context_managers_and_close(self):
+        mock_service = MagicMock()
+        mock_service.close = MagicMock()
+
+        # MessageHandler context manager
+        with MessageHandler(mock_service) as handler:
+            self.assertIsInstance(handler, MessageHandler)
+        mock_service.close.assert_called_once()
+
+        mock_service.close.reset_mock()
+        # LabelHandler context manager
+        with LabelHandler(mock_service) as handler:
+            self.assertIsInstance(handler, LabelHandler)
+        mock_service.close.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

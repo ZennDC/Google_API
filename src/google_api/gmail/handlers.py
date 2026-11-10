@@ -343,6 +343,17 @@ class MessageHandler:
         body = _extract_text_body(message.get("payload", {}))
         return body if body is not None else "No plain text or HTML content found."
 
+    def close(self) -> None:
+        """Closes the underlying Google API HTTP client resource if supported."""
+        if hasattr(self.service, "close"):
+            self.service.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
 
 class LabelHandler:
     """A label handler for the gmail api."""
@@ -471,3 +482,14 @@ class LabelHandler:
         if not created_id:
             raise RuntimeError(f"ID for newly created label {label} not found")
         return created_id
+
+    def close(self) -> None:
+        """Closes the underlying Google API HTTP client resource if supported."""
+        if hasattr(self.service, "close"):
+            self.service.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()

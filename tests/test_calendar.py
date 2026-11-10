@@ -481,6 +481,21 @@ class TestCalendarHandlers(unittest.TestCase):
         with self.assertRaises(HttpError):
             event_handler.get_events("primary", "2026-06-01")
 
+    def test_context_managers_and_close(self):
+        mock_service = MagicMock()
+        mock_service.close = MagicMock()
+
+        # EventHandler context manager
+        with EventHandler(mock_service) as handler:
+            self.assertIsInstance(handler, EventHandler)
+        mock_service.close.assert_called_once()
+
+        mock_service.close.reset_mock()
+        # CalendarHandler context manager
+        with CalendarHandler(mock_service) as handler:
+            self.assertIsInstance(handler, CalendarHandler)
+        mock_service.close.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

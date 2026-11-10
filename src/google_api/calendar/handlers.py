@@ -34,6 +34,17 @@ class EventHandler:
     def __init__(self, service) -> None:
         self.service = service
 
+    def close(self) -> None:
+        """Closes the underlying Google API HTTP client resource if supported."""
+        if hasattr(self.service, "close"):
+            self.service.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
     def plan_event(
         self, calendar_id: str, event_obj: Event | TimedEvent | dict
     ) -> dict:
@@ -385,3 +396,14 @@ class CalendarHandler:
                 f"Failed to update calendar list entry for {calendar_id}: {error}"
             )
             raise
+
+    def close(self) -> None:
+        """Closes the underlying Google API HTTP client resource if supported."""
+        if hasattr(self.service, "close"):
+            self.service.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
