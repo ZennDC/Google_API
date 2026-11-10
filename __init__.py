@@ -13,7 +13,6 @@ from .google_calendar_api import (
 )
 from .oauth import get_credentials, get_credentials_notoken
 
-# Set a NullHandler on the top-level logger to prevent unconfigured logging warnings
 logging.getLogger("google_api").addHandler(logging.NullHandler())
 
 __all__ = [
