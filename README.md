@@ -2,7 +2,10 @@
 
 A clean, modern, and Pythonic wrapper for Google Gmail and Calendar APIs by ZennDC.
 
+[![CI](https://github.com/ZennDC/Google_API/actions/workflows/ci.yml/badge.svg)](https://github.com/ZennDC/Google_API/actions/workflows/ci.yml)
 [![Python: >=3.10](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Type: PEP 561](https://img.shields.io/badge/typing-typed-informational.svg)](https://peps.python.org/pep-0561/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -30,14 +33,25 @@ A clean, modern, and Pythonic wrapper for Google Gmail and Calendar APIs by Zenn
 
 ## Installation
 
-Install in editable mode for local development:
+### Directly from GitHub (for use in other projects)
 
+```bash
+pip install git+https://github.com/ZennDC/Google_API.git
+```
+
+To install a specific branch:
+```bash
+pip install git+https://github.com/ZennDC/Google_API.git@dev
+```
+
+### For Local Development
+
+Clone the repository and install in editable mode:
 ```bash
 pip install -e .
 ```
 
 To include test and lint dependencies:
-
 ```bash
 pip install -e ".[dev]"
 ```
