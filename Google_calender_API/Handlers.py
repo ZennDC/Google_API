@@ -1,6 +1,6 @@
 import re
 from googleapiclient.errors import HttpError
-from Google_API.Google_calender_API.Objects import Event, TimedEvent, Calendar, CalendarList
+from .Objects import Event, TimedEvent, Calendar, CalendarList
 
 
 class EventHandler:
