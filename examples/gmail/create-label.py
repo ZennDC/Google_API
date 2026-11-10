@@ -1,21 +1,16 @@
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from gmail_api.handlers import LabelHandler
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/gmail.labels"]
+from google_api import get_label_handler
 
 
 def main():
     try:
-        creds = get_credentials(SCOPES)
-        service = build("gmail", "v1", credentials=creds)
-        label_handler = LabelHandler(service)
+        label_handler = get_label_handler()
 
         label_name = "Example Label"
         if not label_handler.label_exists(label_name):
             label_handler.create_label(label_name)
+            print(f'Created label "{label_name}".')
         else:
             print(f'Label "{label_name}" already exists.')
 

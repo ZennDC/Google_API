@@ -1,16 +1,12 @@
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+from google_api import get_gmail_service
 
 
 def main():
     """Shows basic usage of the Gmail API by listing the user's Gmail labels."""
     try:
-        creds = get_credentials(SCOPES)
-        service = build("gmail", "v1", credentials=creds)
+        service = get_gmail_service()
 
         results = service.users().labels().list(userId="me").execute()
         labels = results.get("labels", [])

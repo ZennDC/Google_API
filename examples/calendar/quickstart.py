@@ -1,18 +1,14 @@
 import datetime
 
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+from google_api import get_calendar_service
 
 
 def main():
     """Shows basic usage of the Google Calendar API by listing the next 10 upcoming events."""
     try:
-        creds = get_credentials(SCOPES)
-        service = build("calendar", "v3", credentials=creds)
+        service = get_calendar_service()
 
         now = datetime.datetime.now(tz=datetime.UTC).isoformat()
         print("Getting the upcoming 10 events...")

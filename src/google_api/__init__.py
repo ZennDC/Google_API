@@ -45,7 +45,6 @@ __all__ = [
     "build_service",
     "convert_date",
     "convert_time",
-    "load_template",
     "get_calendar_handler",
     "get_calendar_service",
     "get_credentials",
@@ -55,4 +54,5 @@ __all__ = [
     "get_gmail_service",
     "get_label_handler",
     "get_message_handler",
+    "load_template",
 ]

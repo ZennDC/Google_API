@@ -135,4 +135,3 @@ class Label:
             }
 
         return label_obj
-

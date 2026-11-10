@@ -135,7 +135,9 @@ def get_gmail_handler(
 
     handler_type_lower = handler_type.lower()
     if handler_type_lower not in ("message", "label"):
-        raise ValueError(f"Unknown handler_type '{handler_type}'. Must be 'message' or 'label'.")
+        raise ValueError(
+            f"Unknown handler_type '{handler_type}'. Must be 'message' or 'label'."
+        )
 
     # Extract handler-specific keyword arguments
     handler_kwargs = {}
@@ -204,7 +206,9 @@ def get_calendar_handler(
 
     handler_type_lower = handler_type.lower()
     if handler_type_lower not in ("event", "calendar"):
-        raise ValueError(f"Unknown handler_type '{handler_type}'. Must be 'event' or 'calendar'.")
+        raise ValueError(
+            f"Unknown handler_type '{handler_type}'. Must be 'event' or 'calendar'."
+        )
 
     if service is None:
         service = get_calendar_service(scopes=scopes, credentials=credentials, **kwargs)

@@ -121,7 +121,9 @@ def get_credentials(
             flow = InstalledAppFlow.from_client_secrets_file(resolved_secret, scopes)
 
             # Check headless flag or environment variable
-            is_headless = headless or os.environ.get("GOOGLE_API_HEADLESS", "").lower() in ("1", "true", "yes")
+            is_headless = headless or os.environ.get(
+                "GOOGLE_API_HEADLESS", ""
+            ).lower() in ("1", "true", "yes")
 
             if is_headless:
                 flow.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
@@ -130,10 +132,13 @@ def get_credentials(
                 print("Headless Authentication Required:")
                 print(f"Please visit this URL in any browser:\n{auth_url}")
                 print("=" * 60 + "\n")
-                code = input("Enter the authorization code (or full redirect URL): ").strip()
+                code = input(
+                    "Enter the authorization code (or full redirect URL): "
+                ).strip()
                 if "code=" in code:
                     # User pasted the whole redirect URL (e.g. from localhost redirect)
                     from urllib.parse import parse_qs, urlparse
+
                     parsed = urlparse(code)
                     qs = parse_qs(parsed.query)
                     code = qs.get("code", [code])[0]

@@ -200,7 +200,9 @@ class TestGmailHandlers(unittest.TestCase):
                     {"name": "Subject", "value": "Status Report"},
                 ],
                 "mimeType": "text/plain",
-                "body": {"data": base64.urlsafe_b64encode(b"Body text").decode("ASCII")},
+                "body": {
+                    "data": base64.urlsafe_b64encode(b"Body text").decode("ASCII")
+                },
             },
         }
 
@@ -244,7 +246,9 @@ class TestGmailHandlers(unittest.TestCase):
             }
         }
         handler = MessageHandler(mock_service)
-        self.assertEqual(handler.get_message_body("msg_pdf"), "No plain text or HTML content found.")
+        self.assertEqual(
+            handler.get_message_body("msg_pdf"), "No plain text or HTML content found."
+        )
 
     def test_label_operations(self):
         mock_service = MagicMock()
@@ -318,7 +322,10 @@ class TestGmailHandlers(unittest.TestCase):
     def test_update_label_with_name_only(self):
         mock_service = MagicMock()
         mock_patch = mock_service.users().labels().patch
-        mock_patch.return_value.execute.return_value = {"id": "Label_1", "name": "Renamed"}
+        mock_patch.return_value.execute.return_value = {
+            "id": "Label_1",
+            "name": "Renamed",
+        }
         handler = LabelHandler(mock_service)
         result = handler.update_label("Label_1", name="Renamed")
         self.assertEqual(result, {"id": "Label_1", "name": "Renamed"})
@@ -384,17 +391,24 @@ class TestGmailHandlers(unittest.TestCase):
         mock_service = MagicMock()
         mock_send = mock_service.users().messages().send
         handler = MessageHandler(mock_service)
-        handler.send_message(to=[], raw_message=b"From: a@b.com\r\nSubject: Hi\r\n\r\nTest")
+        handler.send_message(
+            to=[], raw_message=b"From: a@b.com\r\nSubject: Hi\r\n\r\nTest"
+        )
         call_kwargs = mock_send.call_args[1]
         self.assertEqual(
             call_kwargs["body"]["raw"],
-            base64.urlsafe_b64encode(b"From: a@b.com\r\nSubject: Hi\r\n\r\nTest").decode("utf-8"),
+            base64.urlsafe_b64encode(
+                b"From: a@b.com\r\nSubject: Hi\r\n\r\nTest"
+            ).decode("utf-8"),
         )
 
     def test_create_draft(self):
         mock_service = MagicMock()
         mock_create = mock_service.users().drafts().create
-        mock_create.return_value.execute.return_value = {"id": "draft_1", "message": {"id": "msg_d1"}}
+        mock_create.return_value.execute.return_value = {
+            "id": "draft_1",
+            "message": {"id": "msg_d1"},
+        }
         handler = MessageHandler(mock_service)
         result = handler.create_draft(
             to=["to1@example.com", "to2@example.com"],
@@ -414,7 +428,9 @@ class TestGmailHandlers(unittest.TestCase):
         mock_service = MagicMock()
         mock_batch_modify = mock_service.users().messages().batchModify
         handler = MessageHandler(mock_service)
-        handler.batch_modify(["m1", "m2", "m3"], add_label_ids=["Label_A"], remove_label_ids=["UNREAD"])
+        handler.batch_modify(
+            ["m1", "m2", "m3"], add_label_ids=["Label_A"], remove_label_ids=["UNREAD"]
+        )
         mock_batch_modify.assert_called_once_with(
             userId="me",
             body={

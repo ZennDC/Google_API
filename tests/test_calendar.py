@@ -46,7 +46,9 @@ class TestCalendarDateAndTime(unittest.TestCase):
         self.assertEqual(convert_time("14u30"), "14:30:00")
 
         # Reversed convert_time
-        reversed_time = convert_time("14:30:00", reverse=True, input_format="%Hu%M", output_format="%H:%M:00")
+        reversed_time = convert_time(
+            "14:30:00", reverse=True, input_format="%Hu%M", output_format="%H:%M:00"
+        )
         self.assertEqual(reversed_time, "14u30")
 
         with self.assertRaises(ValueError):
@@ -168,15 +170,24 @@ class TestCalendarDataclasses(unittest.TestCase):
             start_date="01/06/2026",
             end_date="01/06/2026",
             recurrence=["RRULE:FREQ=WEEKLY;BYDAY=MO"],
-            attendees=["alice@example.com", {"email": "bob@example.com", "displayName": "Bob"}],
-            reminders={"useDefault": False, "overrides": [{"method": "popup", "minutes": 15}]},
+            attendees=[
+                "alice@example.com",
+                {"email": "bob@example.com", "displayName": "Bob"},
+            ],
+            reminders={
+                "useDefault": False,
+                "overrides": [{"method": "popup", "minutes": 15}],
+            },
         )
         built = event.build()
         self.assertEqual(built["summary"], "Weekly Team Sync")
         self.assertEqual(built["recurrence"], ["RRULE:FREQ=WEEKLY;BYDAY=MO"])
         self.assertEqual(
             built["attendees"],
-            [{"email": "alice@example.com"}, {"email": "bob@example.com", "displayName": "Bob"}],
+            [
+                {"email": "alice@example.com"},
+                {"email": "bob@example.com", "displayName": "Bob"},
+            ],
         )
         self.assertEqual(
             built["reminders"],
@@ -258,7 +269,9 @@ class TestCalendarHandlers(unittest.TestCase):
         self.assertEqual(res["summary"], "Existing")
 
         # Update
-        handler.update_calendar("cal_123@group.calendar.google.com", {"summary": "Updated"})
+        handler.update_calendar(
+            "cal_123@group.calendar.google.com", {"summary": "Updated"}
+        )
         mock_service.calendars().update.assert_called_with(
             calendarId="cal_123@group.calendar.google.com", body={"summary": "Updated"}
         )
@@ -280,12 +293,16 @@ class TestCalendarHandlers(unittest.TestCase):
         handler = CalendarHandler(mock_service)
 
         # Get list entry
-        mock_service.calendarList().get().execute.return_value = {"id": "cal_123@group.calendar.google.com"}
+        mock_service.calendarList().get().execute.return_value = {
+            "id": "cal_123@group.calendar.google.com"
+        }
         entry = handler.get_calendar_list_entry("cal_123@group.calendar.google.com")
         self.assertEqual(entry["id"], "cal_123@group.calendar.google.com")
 
         # Update list entry
-        handler.update_calendar_list_entry("cal_123@group.calendar.google.com", {"colorId": "2"})
+        handler.update_calendar_list_entry(
+            "cal_123@group.calendar.google.com", {"colorId": "2"}
+        )
         mock_service.calendarList().update.assert_called_with(
             calendarId="cal_123@group.calendar.google.com", body={"colorId": "2"}
         )
@@ -312,14 +329,18 @@ class TestCalendarHandlers(unittest.TestCase):
     def test_calendar_error_handling(self):
         mock_service = MagicMock()
         resp = httplib2.Response({"status": 500, "reason": "Server Error"})
-        mock_service.calendars().get().execute.side_effect = HttpError(resp, b"Server Error")
+        mock_service.calendars().get().execute.side_effect = HttpError(
+            resp, b"Server Error"
+        )
 
         handler = CalendarHandler(mock_service)
         with self.assertRaises(HttpError):
             handler.get_calendar("bad_id@group.calendar.google.com")
 
         # When calendar cannot be resolved and is None
-        with unittest.mock.patch.object(handler, "_resolve_calendar_id", return_value=None):
+        with unittest.mock.patch.object(
+            handler, "_resolve_calendar_id", return_value=None
+        ):
             self.assertIsNone(handler.get_calendar("missing"))
             handler.clear_calendar("missing")
             handler.delete_calendar("missing")

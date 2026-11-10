@@ -1,18 +1,13 @@
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from gmail_api.handlers import LabelHandler
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+from google_api import get_label_handler
 
 
 def main():
     try:
-        creds = get_credentials(SCOPES)
-        service = build("gmail", "v1", credentials=creds)
+        label_handler = get_label_handler()
+        service = label_handler.service
 
-        label_handler = LabelHandler(service)
         results = service.users().labels().list(userId="me").execute()
         labels = results.get("labels", [])
 

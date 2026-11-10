@@ -1,17 +1,11 @@
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from google_calendar_api.handlers import CalendarHandler
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+from google_api import get_calendar_handler
 
 
 def main():
     try:
-        creds = get_credentials(scopes=SCOPES)
-        service = build("calendar", "v3", credentials=creds)
-        cal_handler = CalendarHandler(service)
+        cal_handler = get_calendar_handler()
 
         calendar_id = cal_handler.get_calendar_id("primary")
         print(f"Primary calendar retrieved: {calendar_id}")

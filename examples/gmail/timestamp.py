@@ -1,17 +1,11 @@
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from gmail_api.handlers import MessageHandler
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+from google_api import get_message_handler
 
 
 def main():
     try:
-        creds = get_credentials(SCOPES)
-        service = build("gmail", "v1", credentials=creds)
-        handler = MessageHandler(service)
+        handler = get_message_handler()
 
         msg_id = next(handler.iter_messages(), None)
         if not msg_id:

@@ -130,7 +130,9 @@ class MessageHandler:
         try:
             if raw_message is not None:
                 if isinstance(raw_message, bytes):
-                    encoded_message = base64.urlsafe_b64encode(raw_message).decode("utf-8")
+                    encoded_message = base64.urlsafe_b64encode(raw_message).decode(
+                        "utf-8"
+                    )
                 else:
                     encoded_message = raw_message
             else:
@@ -142,7 +144,9 @@ class MessageHandler:
                 if bcc:
                     msg["Bcc"] = ", ".join(bcc) if isinstance(bcc, list) else bcc
                 msg.set_content(body, subtype=content_type)
-                encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+                encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode(
+                    "utf-8"
+                )
 
             send_body = {"raw": encoded_message}
             if thread_id:
@@ -178,7 +182,9 @@ class MessageHandler:
         try:
             if raw_message is not None:
                 if isinstance(raw_message, bytes):
-                    encoded_message = base64.urlsafe_b64encode(raw_message).decode("utf-8")
+                    encoded_message = base64.urlsafe_b64encode(raw_message).decode(
+                        "utf-8"
+                    )
                 else:
                     encoded_message = raw_message
             else:
@@ -192,7 +198,9 @@ class MessageHandler:
                 if bcc:
                     msg["Bcc"] = ", ".join(bcc) if isinstance(bcc, list) else bcc
                 msg.set_content(body, subtype=content_type)
-                encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+                encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode(
+                    "utf-8"
+                )
 
             message_payload = {"raw": encoded_message}
             if thread_id:
@@ -227,7 +235,9 @@ class MessageHandler:
             "removeLabelIds": remove_label_ids or [],
         }
         try:
-            self.service.users().messages().batchModify(userId="me", body=body).execute()
+            self.service.users().messages().batchModify(
+                userId="me", body=body
+            ).execute()
             logger.info(f"Batch modified {len(msg_ids)} messages.")
         except HttpError as error:
             logger.error(f"Failed to batch modify messages: {error}")
@@ -240,7 +250,9 @@ class MessageHandler:
 
         body = {"ids": msg_ids}
         try:
-            self.service.users().messages().batchDelete(userId="me", body=body).execute()
+            self.service.users().messages().batchDelete(
+                userId="me", body=body
+            ).execute()
             logger.info(f"Batch deleted {len(msg_ids)} messages.")
         except HttpError as error:
             logger.error(f"Failed to batch delete messages: {error}")
@@ -390,7 +402,9 @@ class LabelHandler:
             logger.info(f"Label {label_id} removed from message {msg_id}.")
             return result
         except HttpError as error:
-            logger.error(f"Failed to remove label {label_id} from message {msg_id}: {error}")
+            logger.error(
+                f"Failed to remove label {label_id} from message {msg_id}: {error}"
+            )
             raise
 
     def delete_label(self, label_id: str) -> None:
@@ -457,4 +471,3 @@ class LabelHandler:
         if not created_id:
             raise RuntimeError(f"ID for newly created label {label} not found")
         return created_id
-

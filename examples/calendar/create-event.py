@@ -1,20 +1,13 @@
 import datetime
 
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from google_calendar_api.handlers import EventHandler
-from google_calendar_api.objects import TimedEvent
-from oauth import get_credentials
-
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+from google_api import TimedEvent, get_event_handler
 
 
 def main():
     try:
-        creds = get_credentials(SCOPES)
-        service = build("calendar", "v3", credentials=creds)
-        event_handler = EventHandler(service)
+        event_handler = get_event_handler()
 
         tomorrow = datetime.date.today() + datetime.timedelta(days=1)
         date_str = tomorrow.strftime("%d/%m/%Y")
