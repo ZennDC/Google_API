@@ -1,7 +1,6 @@
 import logging
 
-from .gmail_api import Label, LabelHandler, Message, MessageHandler
-from .google_calendar_api import (
+from .calendar import (
     Calendar,
     CalendarHandler,
     CalendarList,
@@ -12,6 +11,7 @@ from .google_calendar_api import (
     convert_time,
     load_template,
 )
+from .gmail import Label, LabelHandler, Message, MessageHandler
 from .oauth import (
     CALENDAR_SCOPES,
     GMAIL_SCOPES,

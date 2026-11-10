@@ -7,16 +7,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def load_template(name: str) -> dict:
-    """Loads a JSON template bundled with google_calendar_api.
+    """Loads a JSON template bundled with google_api.calendar.
 
     Args:
         name: Name of the template file (e.g. 'event.json', 'calendar.json', 'calendarList.json').
     """
     if not name.endswith(".json"):
         name = f"{name}.json"
-    template_file = resources.files(
-        "google_api.google_calendar_api.templates"
-    ).joinpath(name)
+    template_file = resources.files("google_api.calendar.templates").joinpath(name)
     return json.loads(template_file.read_text(encoding="utf-8"))
 
 

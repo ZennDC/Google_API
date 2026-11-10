@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import httplib2
 from googleapiclient.errors import HttpError
 
-from google_api.google_calendar_api.handlers import CalendarHandler, EventHandler
-from google_api.google_calendar_api.objects import (
+from google_api.calendar.handlers import CalendarHandler, EventHandler
+from google_api.calendar.objects import (
     Calendar,
     CalendarList,
     Event,

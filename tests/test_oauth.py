@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from google.auth.exceptions import GoogleAuthError
 
-from google_api.gmail_api.handlers import LabelHandler, MessageHandler
-from google_api.google_calendar_api.handlers import CalendarHandler, EventHandler
+from google_api.calendar.handlers import CalendarHandler, EventHandler
+from google_api.gmail.handlers import LabelHandler, MessageHandler
 from google_api.oauth.auth import (
     _resolve_file_path,
     get_credentials,
