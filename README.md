@@ -2,7 +2,7 @@
 
 A clean, modern, and Pythonic wrapper for Google Gmail and Calendar APIs by ZennDC.
 
-[![CI](https://github.com/ZennDC/Google_API/actions/workflows/ci.yml/badge.svg)](https://github.com/ZennDC/Google_API/actions/workflows/ci.yml)
+[![CI](https://github.com/ZennDC/google-api/actions/workflows/ci.yml/badge.svg)](https://github.com/ZennDC/google-api/actions/workflows/ci.yml)
 [![Python: >=3.10](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Type: PEP 561](https://img.shields.io/badge/typing-typed-informational.svg)](https://peps.python.org/pep-0561/)
@@ -36,12 +36,12 @@ A clean, modern, and Pythonic wrapper for Google Gmail and Calendar APIs by Zenn
 ### Directly from GitHub (for use in other projects)
 
 ```bash
-pip install git+https://github.com/ZennDC/Google_API.git
+pip install git+https://github.com/ZennDC/google-api.git
 ```
 
-To install a specific branch:
+To install a specific branch or release tag:
 ```bash
-pip install git+https://github.com/ZennDC/Google_API.git@dev
+pip install git+https://github.com/ZennDC/google-api.git@v1.0.0
 ```
 
 ### For Local Development
