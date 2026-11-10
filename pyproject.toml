@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zdc-google-api"
-version = "0.1.0"
+version = "1.0.0"
 description = "A clean, Pythonic wrapper for Google Gmail and Calendar APIs"
 readme = "README.md"
 requires-python = ">=3.10"
