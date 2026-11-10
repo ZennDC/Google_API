@@ -1,5 +1,5 @@
-from .Gmail_API import Label, LabelHandler, MessageHandler
-from .Google_calender_API import (
+from .gmail_api import Label, LabelHandler, MessageHandler
+from .google_calendar_api import (
     Calendar,
     CalendarHandler,
     CalendarList,
@@ -9,7 +9,7 @@ from .Google_calender_API import (
     convert_date,
     convert_time,
 )
-from .OAuth import get_credentials, get_credentials_notoken
+from .oauth import get_credentials, get_credentials_notoken
 
 __all__ = [
     "Calendar",

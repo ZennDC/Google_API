@@ -3,7 +3,7 @@ import datetime
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from OAuth import get_credentials
+from oauth import get_credentials
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 

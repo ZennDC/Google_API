@@ -2,6 +2,8 @@ import base64
 
 from googleapiclient.errors import HttpError
 
+from ..logging_config import logger
+
 
 class MessageHandler:
     """A message handler for the gmail api."""
@@ -15,18 +17,16 @@ class MessageHandler:
 
     def __init__(self, service, includeSpamTrash=False) -> "MessageHandler":
         self.service = service
-
         self._id_data = self._IdData(includeSpamTrash)
 
     def getNextId(self) -> str:
         """Returns the id of last received mail the first time the function is called,
-        otherwise it returns the id of the mail received before the previously returned mail's id"""
-        # If no messages or index is at the end of the list, fetch more messages
+        otherwise it returns the id of the mail received before the previously returned mail's id
+        """
         if not self._id_data.messages or self._id_data.index + 1 >= len(
             self._id_data.messages
         ):
             if self._id_data.nextPageToken is None and self._id_data.index != -1:
-                # No more messages to fetch
                 return None
             response = (
                 self.service.users()
@@ -46,7 +46,6 @@ class MessageHandler:
             self._id_data.index += 1
             return self._id_data.messages[self._id_data.index]["id"]
         else:
-            # Just move to the next message in the current batch
             self._id_data.index += 1
             return self._id_data.messages[self._id_data.index]["id"]
 
@@ -62,17 +61,19 @@ class MessageHandler:
         try:
             self.service.users().messages().trash(userId="me", id=msg_id).execute()
         except HttpError as error:
-            print(f"An error occurred: {error}")
+            logger.error(f"Failed to trash message {msg_id}: {error}")
+            raise
 
     def untrashMessage(self, msg_id: str) -> None:
         """Undeletes the message with the specified id"""
         try:
             self.service.users().messages().untrash(userId="me", id=msg_id).execute()
-            print(f"Untrashed message with ID: {msg_id}")
+            logger.info(f"Untrashed message with ID: {msg_id}")
         except HttpError as error:
-            print(f"An error occurred: {error}")
+            logger.error(f"Failed to untrash message {msg_id}: {error}")
+            raise
 
-    def getMessageTimestamp(self, msg_id: str) -> str:
+    def getMessageTimestamp(self, msg_id: str) -> int:
         """Returns the received timestamp of the message based on id"""
         message = (
             self.service.users()
@@ -80,10 +81,7 @@ class MessageHandler:
             .get(userId="me", id=msg_id, format="minimal")
             .execute()
         )
-        timestamp = int(
-            message["internalDate"]
-        )  # The timestamp is in milliseconds since the Unix epoch
-        return timestamp
+        return int(message["internalDate"])
 
     def getSenderMailAddress(self, msg_id: str) -> str:
         """Returns the mail adress of the sender"""
@@ -93,7 +91,6 @@ class MessageHandler:
             .get(userId="me", id=msg_id, format="metadata")
             .execute()
         )
-        sender = None
         mail = None
         for header in msg["payload"]["headers"]:
             if header["name"] == "From":
@@ -107,14 +104,14 @@ class MessageHandler:
         return mail
 
     def getSubject(self, msg_id: str) -> str:
-        """Returns the subject of the e-mail"""
-        subject = None
+        """Returns the subject of the message based on id"""
         msg = (
             self.service.users()
             .messages()
             .get(userId="me", id=msg_id, format="metadata")
             .execute()
         )
+        subject = None
         for header in msg["payload"]["headers"]:
             if header["name"] == "Subject":
                 subject = header["value"]
@@ -124,27 +121,31 @@ class MessageHandler:
         self, message_ids: list, sender_mail_addresses: list | str
     ) -> list:
         """Returns a list of messages that are send by the specified sender mail adresses"""
-        print(f"Filtering {len(message_ids)} message(s) on sender mail adresses...")
+        logger.debug(
+            f"Filtering {len(message_ids)} message(s) on sender mail adresses..."
+        )
         filtered_messages = []
 
         if isinstance(sender_mail_addresses, str):
             sender_mail_addresses = [sender_mail_addresses]
 
         for msg_id in message_ids:
-            # Get the message details
             sender_mail = self.getSenderMailAddress(msg_id)
-
             if sender_mail in sender_mail_addresses:
                 filtered_messages.append(msg_id)
 
-        print(f"Filtering complete, result: {len(filtered_messages)} message(s).")
+        logger.debug(
+            f"Filtering complete, result: {len(filtered_messages)} message(s)."
+        )
         return filtered_messages
 
     def filterSendersMulti(
         self, message_ids: list, *sender_mail_addresses_args: list | str
     ) -> list[list[str]]:
         """Returns a list of messages that are send by the specified sender mail adresses"""
-        print(f"Filtering {len(message_ids)} message(s) on sender mail adresses...")
+        logger.debug(
+            f"Filtering {len(message_ids)} message(s) on sender mail adresses..."
+        )
         filtered_messages = [[] for _ in range(len(sender_mail_addresses_args))]
 
         for sender_mail_addresses in sender_mail_addresses_args:
@@ -153,45 +154,40 @@ class MessageHandler:
 
         for msg_id in message_ids:
             try:
-                # Get the sender's email address
                 sender_mail = self.getSenderMailAddress(msg_id)
-
                 for index, sender_mail_addresses in enumerate(
                     sender_mail_addresses_args
                 ):
                     if sender_mail in sender_mail_addresses:
                         filtered_messages[index].append(msg_id)
-
             except HttpError as error:
-                print(f"An error occurred: {error}")
+                logger.error(f"Error fetching sender for message {msg_id}: {error}")
 
-        print(f"Filtering complete, result: {len(filtered_messages)} message(s).")
+        logger.debug(
+            f"Filtering complete, result: {len(filtered_messages)} message(s)."
+        )
         return filtered_messages
 
     def filterOnKeywords(self, message_ids: list, keywords: list[str]) -> list:
         """Filters the subjects of the messages with the provided ids on keywords."""
-        print(f"Filtering {len(message_ids)} message(s) on keywords...")
+        logger.debug(f"Filtering {len(message_ids)} message(s) on keywords...")
         filtered = []
 
         for msg_id in message_ids:
-            # Get the message details
             try:
                 subject = self.getSubject(msg_id)
-
                 for keyword in keywords:
-                    if keyword in subject.lower():
+                    if subject and keyword in subject.lower():
                         filtered.append(msg_id)
                         break
-
             except HttpError as error:
-                print(f"An error occurred: {error}")
+                logger.error(f"Error reading subject for message {msg_id}: {error}")
 
-        print(f"Filtering complete, result: {len(filtered)} message(s).")
+        logger.debug(f"Filtering complete, result: {len(filtered)} message(s).")
         return filtered
 
     def getMessageBody(self, msg_id: str) -> str:
         """Extracts the body of the message with specified id."""
-
         message = (
             self.service.users()
             .messages()
@@ -201,18 +197,14 @@ class MessageHandler:
 
         if "parts" in message["payload"]:
             for part in message["payload"]["parts"]:
-                if part["mimeType"] == "text/plain" or part["mimeType"] == "text/html":
+                if part["mimeType"] in ("text/plain", "text/html"):
                     body = part["body"]["data"]
-                    body_decoded = base64.urlsafe_b64decode(
-                        body.encode("ASCII")
-                    ).decode("utf-8")
-                    return body_decoded
+                    return base64.urlsafe_b64decode(body.encode("ASCII")).decode(
+                        "utf-8"
+                    )
         else:
             body = message["payload"]["body"]["data"]
-            body_decoded = base64.urlsafe_b64decode(body.encode("ASCII")).decode(
-                "utf-8"
-            )
-            return body_decoded
+            return base64.urlsafe_b64decode(body.encode("ASCII")).decode("utf-8")
         return "No plain text or HTML content found."
 
 
@@ -222,49 +214,47 @@ class LabelHandler:
     def __init__(self, service) -> "LabelHandler":
         self.service = service
 
-    def label_exists(self, label_name):
+    def label_exists(self, label_name: str) -> bool:
         """Check if a label already exists."""
         labels = (
             self.service.users().labels().list(userId="me").execute().get("labels", [])
         )
         return any(label["name"] == label_name for label in labels)
 
-    def create_label(self, label_name):
+    def create_label(self, label_name: str) -> None:
         """Create a new label."""
         label = {"name": label_name}
         self.service.users().labels().create(userId="me", body=label).execute()
-        print(f'Label "{label_name}" created successfully.')
+        logger.info(f'Label "{label_name}" created successfully.')
 
-    def get_label_id(self, label_name):
+    def get_label_id(self, label_name: str) -> str | None:
         """Get the id of a label in the user's mailbox."""
         results = self.service.users().labels().list(userId="me").execute()
         labels = results.get("labels", [])
         if not labels:
-            print("No labels found.")
-        else:
-            for label in labels:
-                if label["name"] == label_name:
-                    id = label["id"]
-                    return id
+            logger.debug("No labels found.")
+            return None
+        for label in labels:
+            if label["name"] == label_name:
+                return label["id"]
 
-            print(f"Label {label_name} does not exist.")
+        logger.debug(f"Label {label_name} does not exist.")
+        return None
 
-    def add_label_to_message(self, msg_id, labelID):
+    def add_label_to_message(self, msg_id: str, label_id: str) -> None:
         """Adds the label to the message with the specified id"""
-
-        body = {"addLabelIds": [labelID]}
+        body = {"addLabelIds": [label_id]}
         self.service.users().messages().modify(
             userId="me", id=msg_id, body=body
         ).execute()
+        logger.info(f"Message with ID {msg_id} successfully labeled.")
 
-        print(f"Message with ID {msg_id} successfully labeled.")
-
-    def get_or_create_label_id(self, label):
+    def get_or_create_label_id(self, label: str) -> str:
         if not self.label_exists(label):
-            print(f'Creating label "{label}".')
+            logger.info(f'Creating label "{label}".')
             self.create_label(label)
         else:
-            print(f'Label "{label}" already exists.')
+            logger.debug(f'Label "{label}" already exists.')
 
         id = self.get_label_id(label)
         if not id:

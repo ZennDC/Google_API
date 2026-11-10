@@ -1,10 +1,16 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from Gmail_API.handlers import LabelHandler
-from OAuth import get_credentials
+from gmail_api.handlers import LabelHandler
+from oauth import get_credentials
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.labels"]
+
+
+def delete_label(service, label_id):
+    """Deletes a label in the user's mailbox."""
+    service.users().labels().delete(userId="me", id=label_id).execute()
+    print(f"Label with ID: {label_id} deleted successfully.")
 
 
 def main():
@@ -14,10 +20,11 @@ def main():
         label_handler = LabelHandler(service)
 
         label_name = "Example Label"
-        if not label_handler.label_exists(label_name):
-            label_handler.create_label(label_name)
+        label_id = label_handler.get_label_id(label_name)
+        if label_id:
+            delete_label(service, label_id)
         else:
-            print(f'Label "{label_name}" already exists.')
+            print(f'Label "{label_name}" not found.')
 
     except HttpError as error:
         print(f"An error occurred: {error}")

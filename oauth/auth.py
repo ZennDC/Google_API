@@ -6,10 +6,11 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from ..logging_config import logger
+
 
 def _get_project_root() -> Path:
     """Returns the root directory of the google_api project."""
-    # This file is in <root>/OAuth/google_credentials.py
     return Path(__file__).resolve().parent.parent
 
 
@@ -82,7 +83,7 @@ def get_credentials(
                 with open(resolved_token, "w") as token:
                     token.write(creds.to_json())
             except GoogleAuthError as e:
-                print(f"Failed to refresh token: {e}")
+                logger.warning(f"Failed to refresh token: {e}")
                 creds = None
 
         if creds and (not creds.has_scopes(scopes) or not creds.valid):
@@ -102,7 +103,7 @@ def get_credentials(
             with open(resolved_token, "w") as token:
                 token.write(creds.to_json())
         except Exception as e:
-            print(f"An error occurred during authentication flow: {e}")
+            logger.error(f"An error occurred during authentication flow: {e}")
             raise
 
     return creds

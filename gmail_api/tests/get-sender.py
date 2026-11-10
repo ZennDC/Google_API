@@ -1,8 +1,8 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from Gmail_API.handlers import MessageHandler
-from OAuth import get_credentials
+from gmail_api.handlers import MessageHandler
+from oauth import get_credentials
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -13,13 +13,16 @@ def main():
         service = build("gmail", "v1", credentials=creds)
         handler = MessageHandler(service)
 
-        print("Fetching first 10 message IDs using MessageHandler pagination...")
-        for i in range(1, 11):
-            msg_id = handler.getNextId()
-            if not msg_id:
-                print(f"No more messages found after {i - 1} messages.")
-                break
-            print(f"{i}: {msg_id}")
+        msg_id = handler.getNextId()
+        if not msg_id:
+            print("No messages found.")
+            return
+
+        sender_email = handler.getSenderMailAddress(msg_id)
+        subject = handler.getSubject(msg_id)
+        print(f"Message ID: {msg_id}")
+        print(f"Sender: {sender_email}")
+        print(f"Subject: {subject}")
 
     except HttpError as error:
         print(f"An error occurred: {error}")

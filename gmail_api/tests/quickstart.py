@@ -1,25 +1,27 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from Gmail_API.handlers import MessageHandler
-from OAuth import get_credentials
+from oauth import get_credentials
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 
 def main():
+    """Shows basic usage of the Gmail API by listing the user's Gmail labels."""
     try:
         creds = get_credentials(SCOPES)
         service = build("gmail", "v1", credentials=creds)
-        handler = MessageHandler(service)
 
-        msg_id = handler.getNextId()
-        if not msg_id:
-            print("No messages found.")
+        results = service.users().labels().list(userId="me").execute()
+        labels = results.get("labels", [])
+
+        if not labels:
+            print("No labels found.")
             return
 
-        timestamp = handler.getMessageTimestamp(msg_id)
-        print(f"Message ID: {msg_id}, Timestamp: {timestamp}")
+        print("Labels:")
+        for label in labels:
+            print(f"- {label['name']}")
 
     except HttpError as error:
         print(f"An error occurred: {error}")

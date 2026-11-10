@@ -1,7 +1,10 @@
 import re
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytz
+
+TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
 def convert_date(

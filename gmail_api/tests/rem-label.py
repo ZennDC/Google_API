@@ -1,8 +1,8 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from Gmail_API.handlers import LabelHandler, MessageHandler
-from OAuth import get_credentials
+from gmail_api.handlers import LabelHandler, MessageHandler
+from oauth import get_credentials
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 

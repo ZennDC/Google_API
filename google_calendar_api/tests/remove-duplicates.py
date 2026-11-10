@@ -3,8 +3,8 @@ import datetime
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from Google_calender_API.handlers import EventHandler
-from OAuth import get_credentials
+from google_calendar_api.handlers import EventHandler
+from oauth import get_credentials
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
