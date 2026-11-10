@@ -1,5 +1,11 @@
 class Label:
-    def __init__(self, name: str, message_list_visibility: str = "", label_list_visibility: str = "", color: tuple = ("", "")):
+    def __init__(
+        self,
+        name: str,
+        message_list_visibility: str = "",
+        label_list_visibility: str = "",
+        color: tuple = ("", ""),
+    ):
         self.name = name
         self.message_list_visibility = message_list_visibility
         self.label_list_visibility = label_list_visibility
@@ -11,7 +17,7 @@ class Label:
         self._messages_unread = ""
         self._threads_total = ""
         self._threads_unread = ""
-        
+
     @property
     def name(self) -> str:
         return self._name
@@ -53,12 +59,12 @@ class Label:
         self._background_color = value[1]
 
     @classmethod
-    def from_json(cls, json_obj: dict) -> 'Label':
+    def from_json(cls, json_obj: dict) -> "Label":
         obj = cls(
-            name = json_obj['name'], 
-            message_list_visibility = json_obj["messageListVisibility"],
-            label_list_visibility = json_obj["labelListVisibility"],
-            color = json_obj["color"],
+            name=json_obj["name"],
+            message_list_visibility=json_obj["messageListVisibility"],
+            label_list_visibility=json_obj["labelListVisibility"],
+            color=json_obj["color"],
         )
         obj._id = json_obj["id"]
         obj._type = json_obj["type"]
@@ -68,11 +74,9 @@ class Label:
         obj._threads_unread = json_obj["threadsUnread"]
 
         return obj
-        
+
     def build(self) -> dict:
-        label_obj = {
-            "name": self._name
-        }
+        label_obj = {"name": self._name}
 
         if self.message_list_visibility:
             label_obj["messageListVisibility"] = self.message_list_visibility
@@ -81,5 +85,5 @@ class Label:
         if self.color:
             label_obj["color"] = {
                 "textColor": self.color[0],
-                "backgroundColor": self.color[1]
+                "backgroundColor": self.color[1],
             }

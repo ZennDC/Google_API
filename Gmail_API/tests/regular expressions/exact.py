@@ -6,7 +6,7 @@ AbsoluteCREW: https://app.crewplanner.com\r\n\r\n# Je bent ingepland op 3 shifte
 """
 
 # General pattern matching any two letters followed by a date and time
-pattern = r'\r\n(..) +(\d{1,2} \w+ \d{4}) \| (\d{2}:\d{2} - \d{2}:\d{2})\r\n'
+pattern = r"\r\n(..) +(\d{1,2} \w+ \d{4}) \| (\d{2}:\d{2} - \d{2}:\d{2})\r\n"
 
 matches = re.findall(pattern, email_text)
 

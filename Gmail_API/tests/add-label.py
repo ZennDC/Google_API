@@ -1,52 +1,33 @@
-import os.path
-import base64
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# If modifying these SCOPES, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
+from Gmail_API.handlers import LabelHandler, MessageHandler
+from OAuth import get_credentials
+
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+
 
 def main():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-
     try:
-        service = build('gmail', 'v1', credentials=creds)
+        creds = get_credentials(SCOPES)
+        service = build("gmail", "v1", credentials=creds)
 
-        # List messages
-        results = service.users().messages().list(userId='me', maxResults=10).execute()
-        messages = results.get('messages', [])
+        message_handler = MessageHandler(service)
+        label_handler = LabelHandler(service)
 
-        if not messages:
-            print('No messages found.')
-        else:
-            for message in messages:
-                msg_id = message['id']
-                print(f'Message ID: {msg_id}')
+        msg_id = message_handler.getNextId()
+        if not msg_id:
+            print("No messages found.")
+            return
 
-                # Modify message to add a label
-                label_id = 'IMPORTANT'  # Replace with your label ID
-                modify_request_body = {
-                    'addLabelIds': [label_id]
-                }
-
-                modified_msg = service.users().messages().modify(userId='me', id=msg_id, body=modify_request_body).execute()
-                print(f'Message with ID {msg_id} successfully labeled.')
+        label_name = "TEST_LABEL"
+        label_id = label_handler.get_or_create_label_id(label_name)
+        label_handler.add_label_to_message(msg_id, label_id)
+        print(f"Added label {label_name} to message {msg_id}")
 
     except HttpError as error:
-        print(f'An error occurred: {error}')
+        print(f"An error occurred: {error}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

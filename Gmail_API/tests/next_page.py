@@ -1,46 +1,29 @@
-import os.path
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# If modifying these SCOPES, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+from Gmail_API.handlers import MessageHandler
+from OAuth import get_credentials
+
+SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+
 
 def main():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-
     try:
-        service = build('gmail', 'v1', credentials=creds)
-        
-        messages = []
-        next_page_token = None
+        creds = get_credentials(SCOPES)
+        service = build("gmail", "v1", credentials=creds)
+        handler = MessageHandler(service)
 
-        while True:
-            response = service.users().messages().list(userId='me', pageToken=next_page_token).execute()
-            if 'messages' in response:
-                messages.extend(response['messages'])
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
+        print("Fetching first 10 message IDs using MessageHandler pagination...")
+        for i in range(1, 11):
+            msg_id = handler.getNextId()
+            if not msg_id:
+                print(f"No more messages found after {i - 1} messages.")
                 break
-        
-        print(f'Total messages: {len(messages)}')
-        for message in messages:
-            print(f'Message ID: {message["id"]}')
+            print(f"{i}: {msg_id}")
 
     except HttpError as error:
-        print(f'An error occurred: {error}')
+        print(f"An error occurred: {error}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

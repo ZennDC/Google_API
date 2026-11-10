@@ -1,66 +1,43 @@
 import datetime
-import os.path
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# If modifying these scopes, delete the file token.json.
+from Google_calender_API.handlers import EventHandler
+from Google_calender_API.objects import TimedEvent
+from OAuth import get_credentials
+
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
 def main():
-  """Shows basic usage of the Google Calendar API.
-  Prints the start and name of the next 10 events on the user's calendar.
-  """
-  creds = None
-  # The file token.json stores the user's access and refresh tokens, and is
-  # created automatically when the authorization flow completes for the first
-  # time.
-  if os.path.exists("token.json"):
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-  # If there are no (valid) credentials available, let the user log in.
-  if not creds or not creds.valid:
-    if creds and creds.expired and creds.refresh_token:
-      creds.refresh(Request())
-    else:
-      flow = InstalledAppFlow.from_client_secrets_file(
-          "credentials.json", SCOPES
-      )
-      creds = flow.run_local_server(port=0)
-    # Save the credentials for the next run
-    with open("token.json", "w") as token:
-      token.write(creds.to_json())
+    try:
+        creds = get_credentials(SCOPES)
+        service = build("calendar", "v3", credentials=creds)
+        event_handler = EventHandler(service)
 
-  try:
-    service = build("calendar", "v3", credentials=creds)
-    event = {
-    "summary": "Sample Event",
-    "start": {
-        "dateTime": "2024-06-21T10:00:00",
-        "timeZone": "Europe/Brussels"
-    },
-    "end": {
-        "dateTime": "2024-06-21T11:00:00",
-        "timeZone": "Europe/Brussels"
-    }
-    }
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        date_str = tomorrow.strftime("%d/%m/%Y")
 
-    from Objects import Event
-    from datetime import date
+        event = TimedEvent(
+            summary="API Test Event",
+            start_date=date_str,
+            start_time="14:00",
+            end_date=date_str,
+            end_time="15:00",
+            time_format="%H:%M",
+        )
+        event.description = "Automated test event created via Google_API"
+        event_obj = event.build()
 
-    d = date(2024, 6, 21)
-    d2 = date(2024, 6, 21)
-    event_obj = Event('event', d, d2).build()
+        created = event_handler.planEvent("primary", event_obj)
+        print(
+            f"Event created successfully! Summary: '{created.get('summary')}', ID: {created.get('id')}"
+        )
 
-    created_event = service.events().insert(calendarId='primary', body=event_obj).execute()
-
-    print(f"Event created: {created_event['id']}")
-  except HttpError as error:
-    print(f"An error occurred: {error}")
+    except HttpError as error:
+        print(f"An error occurred: {error}")
 
 
 if __name__ == "__main__":
-  main()
+    main()

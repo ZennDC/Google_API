@@ -6,7 +6,7 @@ AbsoluteCREW: https://app.crewplanner.com\r\n\r\n# Je bent ingepland op 3 shifte
 """
 
 # Regular expression pattern
-pattern = r'\r\n(.*)\r\n'  # Matches text between \r\n, using greedy matching
+pattern = r"\r\n(.*)\r\n"  # Matches text between \r\n, using greedy matching
 
 # Search for the pattern
 matches = re.findall(pattern, email_text, flags=re.DOTALL)

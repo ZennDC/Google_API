@@ -169,8 +169,11 @@ cython_debug/
 
 # Added by ZennDC, project specific exclusions
 
+secrets/
+*.token.json
 credentials*.json
 client_secret*.json
 token*.json
 *token*.json
 .vscode
+.ruff_cache

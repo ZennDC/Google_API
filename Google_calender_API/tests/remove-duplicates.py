@@ -1,30 +1,30 @@
-from Google_API.OAuth.Google_Credentials import get_credentials as get_creds
-from Google_API.Google_calender_API.Handlers import CalendarHandler
+import datetime
+
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
-SCOPES = ['https://www.googleapis.com/auth/calendar']
+from Google_calender_API.handlers import EventHandler
+from OAuth import get_credentials
 
-# Set up credentials and initialize the Google Calendar API client
-creds = get_creds('token.json', 'client_secret.json', SCOPES)
-service = build('calendar', 'v3', credentials=creds)
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-handler = CalendarHandler(service)
 
-# Fetch events from the calendar
-calendar_name = 'Werk'
-calendar_id = handler.get_calendar_id(calendar_name)
-events_result = service.events().list(calendarId=calendar_id, timeMin='2022-01-01T00:00:00Z', timeMax='2024-12-31T23:59:59Z').execute()
-events = events_result.get('items', [])
+def main():
+    try:
+        creds = get_credentials(SCOPES)
+        service = build("calendar", "v3", credentials=creds)
+        event_handler = EventHandler(service)
 
-# Find and remove duplicates
-seen_events = {}
-for event in events:
-    event_key = (event['summary'], event['start'].get('dateTime'), event['end'].get('dateTime'))
-    if event_key in seen_events:
-        # Duplicate found, remove this event
-        service.events().delete(calendarId=calendar_id, eventId=event['id']).execute()
-    else:
-        # No duplicate, add to seen events
-        seen_events[event_key] = event
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).strftime(
+            "%d/%m/%Y"
+        )
+        print(f"Checking for and removing duplicates on: {tomorrow}")
+        event_handler.removeDuplicates("primary", tomorrow)
+        print("Duplicate check complete.")
 
-print("Duplicate events removed.")
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+
+
+if __name__ == "__main__":
+    main()
