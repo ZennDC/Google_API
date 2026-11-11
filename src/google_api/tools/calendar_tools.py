@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from ..calendar.handlers import CalendarHandler, EventHandler
 from ..calendar.objects import Event, TimedEvent, validate_time_zone
 from ..oauth.factory import CALENDAR_SCOPES, get_calendar_service
-from ._base import _BaseToolGroup
+from ._base import _BaseToolGroup, tool_action
 from ._utils import (
     DEFAULT_TIME_ZONE,
     TOOL_HANDLED_ERRORS,
@@ -158,6 +158,7 @@ class CalendarTools(_BaseToolGroup):
             self.delete_event,
         ]
 
+    @tool_action(read_only=False)
     def schedule_event(
         self,
         title: str,
@@ -277,6 +278,7 @@ class CalendarTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, "Failed to schedule event")
 
+    @tool_action(read_only=True)
     def list_events(
         self,
         start_date: str,
@@ -356,6 +358,7 @@ class CalendarTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, "Failed to list events")
 
+    @tool_action(read_only=True)
     def check_availability(
         self,
         start: str,
@@ -456,6 +459,7 @@ class CalendarTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, "Failed to check availability")
 
+    @tool_action(read_only=False)
     def delete_event(
         self,
         event_id: str,

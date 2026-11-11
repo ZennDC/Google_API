@@ -189,6 +189,78 @@ class TestGoogleAPIToolsClient(unittest.TestCase):
                         f"{fn.__name__}.{param_name} has non-primitive hint {hints[param_name]}",
                     )
 
+    def test_tool_safety_metadata_and_read_only_vs_mutating_sets(self) -> None:
+        tools = GoogleAPITools()
+        all_names = {fn.__name__ for fn in tools.get_tools()}
+
+        expected_read_only = {
+            "list_emails",
+            "read_email",
+            "list_events",
+            "check_availability",
+        }
+        expected_mutating = {
+            "send_email",
+            "apply_label",
+            "trash_email",
+            "schedule_event",
+            "delete_event",
+        }
+
+        self.assertEqual(GoogleAPITools.READ_ONLY_TOOLS, expected_read_only)
+        self.assertEqual(GoogleAPITools.MUTATING_TOOLS, expected_mutating)
+        self.assertEqual(GoogleAPITools.SENSITIVE_TOOLS, expected_mutating)
+        self.assertEqual(
+            GoogleAPITools.READ_ONLY_TOOLS & GoogleAPITools.MUTATING_TOOLS, set()
+        )
+        self.assertEqual(
+            GoogleAPITools.READ_ONLY_TOOLS | GoogleAPITools.MUTATING_TOOLS, all_names
+        )
+
+        # Every bound callable exposes explicit metadata attributes
+        for fn in tools.get_tools():
+            is_ro = getattr(fn, "is_read_only", None)
+            is_mut = getattr(fn, "is_mutating", None)
+            self.assertIsInstance(is_ro, bool)
+            self.assertIsInstance(is_mut, bool)
+            self.assertNotEqual(is_ro, is_mut)
+            self.assertEqual(GoogleAPITools.is_read_only(fn), is_ro)
+            self.assertEqual(GoogleAPITools.is_mutating(fn), is_mut)
+            self.assertEqual(GoogleAPITools.is_read_only(fn.__name__), is_ro)
+            self.assertEqual(GoogleAPITools.is_mutating(fn.__name__), is_mut)
+
+        self.assertFalse(GoogleAPITools.is_read_only("unknown_tool"))
+        self.assertFalse(GoogleAPITools.is_mutating("unknown_tool"))
+
+        # Filtering respects enabled services
+        self.assertEqual(
+            {fn.__name__ for fn in tools.get_read_only_tools()}, expected_read_only
+        )
+        self.assertEqual(
+            {fn.__name__ for fn in tools.get_mutating_tools()}, expected_mutating
+        )
+
+        cal_only = GoogleAPITools(include_gmail=False, include_calendar=True)
+        self.assertEqual(
+            {fn.__name__ for fn in cal_only.get_read_only_tools()},
+            {"list_events", "check_availability"},
+        )
+        self.assertEqual(
+            {fn.__name__ for fn in cal_only.get_mutating_tools()},
+            {"schedule_event", "delete_event"},
+        )
+
+        meta = cal_only.get_tool_metadata()
+        self.assertEqual(
+            meta,
+            {
+                "schedule_event": {"read_only": False, "mutating": True},
+                "list_events": {"read_only": True, "mutating": False},
+                "check_availability": {"read_only": True, "mutating": False},
+                "delete_event": {"read_only": False, "mutating": True},
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

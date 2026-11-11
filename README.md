@@ -171,6 +171,23 @@ agent_tools = tools.get_tools()
 
 You can also use [`GmailTools`](src/google_api/tools/gmail_tools.py) or [`CalendarTools`](src/google_api/tools/calendar_tools.py) individually, or call methods directly on `tools.gmail` and `tools.calendar`.
 
+### Safety Metadata (Read-Only vs. Mutating Tools)
+
+`GoogleAPITools` exposes dynamic tool safety metadata derived directly from each tool's definition so agents (e.g., confirmation gates) never need to hardcode tool names:
+
+```python
+# Class-level tool name sets
+GoogleAPITools.READ_ONLY_TOOLS   # {"list_emails", "read_email", "list_events", "check_availability"}
+GoogleAPITools.MUTATING_TOOLS    # {"send_email", "apply_label", "trash_email", "schedule_event", "delete_event"}
+GoogleAPITools.SENSITIVE_TOOLS   # Alias for MUTATING_TOOLS
+
+# Filter or inspect tools at runtime
+safe_tools = tools.get_read_only_tools()
+mutating_tools = tools.get_mutating_tools()
+metadata = tools.get_tool_metadata()
+is_safe = GoogleAPITools.is_read_only("list_emails")  # True (also accepts the callable)
+```
+
 ### Binding to LLM Frameworks
 
 **Google GenAI SDK:**

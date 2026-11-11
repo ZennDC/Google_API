@@ -6,7 +6,7 @@ from typing import Any
 
 from ..gmail.handlers import LabelHandler, MessageHandler
 from ..oauth.factory import GMAIL_SCOPES, get_gmail_service
-from ._base import _BaseToolGroup
+from ._base import _BaseToolGroup, tool_action
 from ._utils import (
     TOOL_HANDLED_ERRORS,
     clamp_int,
@@ -107,6 +107,7 @@ class GmailTools(_BaseToolGroup):
             self.trash_email,
         ]
 
+    @tool_action(read_only=True)
     def list_emails(
         self,
         query: str = "",
@@ -163,6 +164,7 @@ class GmailTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, "Failed to list emails")
 
+    @tool_action(read_only=True)
     def read_email(self, email_id: str, max_body_chars: int = 4000) -> dict[str, Any]:
         """Reads the full cleaned text content of a specific email by ID.
 
@@ -210,6 +212,7 @@ class GmailTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, f"Failed to read email '{email_id}'")
 
+    @tool_action(read_only=False)
     def send_email(
         self,
         to: str,
@@ -297,6 +300,7 @@ class GmailTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, "Failed to send email")
 
+    @tool_action(read_only=False)
     def apply_label(
         self,
         email_id: str,
@@ -361,6 +365,7 @@ class GmailTools(_BaseToolGroup):
             except TOOL_HANDLED_ERRORS as exc:
                 return handle_tool_exception(exc, "Failed to update label")
 
+    @tool_action(read_only=False)
     def trash_email(self, email_id: str) -> dict[str, Any]:
         """Moves an email to Gmail trash (reversible).
 

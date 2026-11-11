@@ -26,6 +26,14 @@ class GoogleAPITools:
     tool methods via ``get_tools()``.
     """
 
+    READ_ONLY_TOOLS: frozenset[str] = GmailTools._discover_tool_names(
+        read_only=True
+    ) | CalendarTools._discover_tool_names(read_only=True)
+    MUTATING_TOOLS: frozenset[str] = GmailTools._discover_tool_names(
+        read_only=False
+    ) | CalendarTools._discover_tool_names(read_only=False)
+    SENSITIVE_TOOLS: frozenset[str] = MUTATING_TOOLS
+
     def __init__(
         self,
         token_file: str | None = None,
@@ -196,3 +204,50 @@ class GoogleAPITools:
     def get_tools(self) -> list[Callable[..., dict[str, Any]]]:
         """Returns all enabled bound Gmail and Calendar tool methods."""
         return self.get_gmail_tools() + self.get_calendar_tools()
+
+    def get_read_only_tools(self) -> list[Callable[..., dict[str, Any]]]:
+        """Returns bound tool methods marked as read-only for enabled services."""
+        tools: list[Callable[..., dict[str, Any]]] = []
+        if self.include_gmail:
+            tools.extend(self.gmail.get_read_only_tools())
+        if self.include_calendar:
+            tools.extend(self.calendar.get_read_only_tools())
+        return tools
+
+    def get_mutating_tools(self) -> list[Callable[..., dict[str, Any]]]:
+        """Returns bound tool methods marked as mutating/sensitive for enabled services."""
+        tools: list[Callable[..., dict[str, Any]]] = []
+        if self.include_gmail:
+            tools.extend(self.gmail.get_mutating_tools())
+        if self.include_calendar:
+            tools.extend(self.calendar.get_mutating_tools())
+        return tools
+
+    def get_tool_metadata(self) -> dict[str, dict[str, bool]]:
+        """Returns read-only/mutating metadata keyed by tool name for enabled services."""
+        metadata: dict[str, dict[str, bool]] = {}
+        if self.include_gmail:
+            metadata.update(self.gmail.get_tool_metadata())
+        if self.include_calendar:
+            metadata.update(self.calendar.get_tool_metadata())
+        return metadata
+
+    @classmethod
+    def is_read_only(cls, tool: str | Callable[..., Any]) -> bool:
+        """Returns True if a tool name or callable is explicitly marked read-only."""
+        if callable(tool):
+            flag = getattr(tool, "is_read_only", None)
+            if isinstance(flag, bool):
+                return flag
+            return getattr(tool, "__name__", "") in cls.READ_ONLY_TOOLS
+        return tool in cls.READ_ONLY_TOOLS
+
+    @classmethod
+    def is_mutating(cls, tool: str | Callable[..., Any]) -> bool:
+        """Returns True if a tool name or callable is marked mutating/sensitive."""
+        if callable(tool):
+            flag = getattr(tool, "is_mutating", None)
+            if isinstance(flag, bool):
+                return flag
+            return getattr(tool, "__name__", "") in cls.MUTATING_TOOLS
+        return tool in cls.MUTATING_TOOLS

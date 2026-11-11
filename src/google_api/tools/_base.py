@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
 from google.auth.exceptions import GoogleAuthError
 
@@ -11,6 +11,19 @@ from ..oauth.auth import get_credentials
 from ._utils import err
 
 logger = logging.getLogger("google_api")
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def tool_action(*, read_only: bool) -> Callable[[_F], _F]:
+    """Marks a tool method with safety metadata (read-only vs mutating)."""
+
+    def decorator(func: _F) -> _F:
+        func.is_read_only = read_only  # type: ignore[attr-defined]
+        func.is_mutating = not read_only  # type: ignore[attr-defined]
+        return func
+
+    return decorator
 
 
 class _BaseToolGroup:
@@ -49,6 +62,39 @@ class _BaseToolGroup:
 
     def _clear_handlers(self) -> None:
         raise NotImplementedError
+
+    def get_tools(self) -> list[Callable[..., dict[str, Any]]]:
+        raise NotImplementedError
+
+    @classmethod
+    def _discover_tool_names(cls, *, read_only: bool) -> frozenset[str]:
+        return frozenset(
+            name
+            for name, attr in cls.__dict__.items()
+            if callable(attr) and getattr(attr, "is_read_only", None) is read_only
+        )
+
+    def get_read_only_tools(self) -> list[Callable[..., dict[str, Any]]]:
+        """Returns bound tool methods marked as read-only."""
+        return [
+            fn for fn in self.get_tools() if getattr(fn, "is_read_only", False) is True
+        ]
+
+    def get_mutating_tools(self) -> list[Callable[..., dict[str, Any]]]:
+        """Returns bound tool methods marked as mutating/sensitive."""
+        return [
+            fn for fn in self.get_tools() if getattr(fn, "is_mutating", False) is True
+        ]
+
+    def get_tool_metadata(self) -> dict[str, dict[str, bool]]:
+        """Returns read-only/mutating metadata keyed by tool name."""
+        return {
+            fn.__name__: {
+                "read_only": bool(getattr(fn, "is_read_only", False)),
+                "mutating": bool(getattr(fn, "is_mutating", True)),
+            }
+            for fn in self.get_tools()
+        }
 
     def authenticate(self) -> bool:
         """Runs OAuth authentication and initializes handlers for this tool group.
