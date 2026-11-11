@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import Request
@@ -145,7 +146,7 @@ def get_credentials(
                 flow.fetch_token(code=code)
                 creds = flow.credentials
             else:
-                server_kwargs = {"port": port}
+                server_kwargs: dict[str, Any] = {"port": port}
                 if host != "localhost":
                     server_kwargs["host"] = host
                 if bind_addr is not None:

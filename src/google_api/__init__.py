@@ -26,6 +26,7 @@ from .oauth import (
     get_label_handler,
     get_message_handler,
 )
+from .tools import CalendarTools, GmailTools, GoogleAPITools
 
 logging.getLogger("google_api").addHandler(logging.NullHandler())
 
@@ -35,8 +36,11 @@ __all__ = [
     "Calendar",
     "CalendarHandler",
     "CalendarList",
+    "CalendarTools",
     "Event",
     "EventHandler",
+    "GmailTools",
+    "GoogleAPITools",
     "Label",
     "LabelHandler",
     "Message",

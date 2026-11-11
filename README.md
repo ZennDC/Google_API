@@ -24,6 +24,10 @@ A clean, modern, and Pythonic wrapper for Google Gmail and Calendar APIs by Zenn
 - **Calendar Automation (`google_api.calendar`)**:
   - **`EventHandler`**: Event creation (`plan_event`), pagination (`iter_events`), Dutch/ISO date and time conversions, recurrence support, and duplicate detection/cleanup.
   - **`CalendarHandler`**: Primary and secondary calendar CRUD, calendar list entry management, and ID resolution by summary name.
+- **AI Agent Tool Layer (`google_api.tools`)**:
+  - **`GoogleAPITools` (`GmailTools` + `CalendarTools`)**: OOP authentication & lifecycle wrapper (`authenticate() -> bool`, `get_tools()`) returning bound methods with flat primitive parameters.
+  - **Atomic, Token-Pruned Actions**: Single round-trip Gmail (`list_emails`, `read_email`, `send_email`, `apply_label`, `trash_email`) and Calendar (`schedule_event`, `list_events`, `check_availability`, `delete_event`) tools returning compact `success`/`data`/`message` or `success`/`error`/`error_code` dicts.
+  - **Framework Agnostic**: Pure standard library Python functions with Google-style docstrings and type hints—zero extra dependencies.
 - **Developer-Ready Architecture**:
   - Full PEP 561 typed (`py.typed`).
   - Comprehensive unit test suite with 100% offline mocks.
@@ -135,6 +139,84 @@ export GOOGLE_API_HEADLESS=1
 
 ---
 
+## AI Agent Tools (`google_api.tools`)
+
+The `google_api.tools` package wraps the Core SDK into atomic, token-pruned functions designed for LLM function calling. Every tool uses only primitive parameters (`str`, `int`, `float`, `bool`, `list[str]`) and returns a consistent JSON-serializable envelope:
+
+```python
+# Success
+{"success": True, "data": {...}, "message": "Event 'Team Sync' scheduled successfully."}
+
+# Failure
+{"success": False, "error": "Calendar 'Work' not found.", "error_code": "NOT_FOUND"}
+```
+
+### Recommended OOP Usage (`GoogleAPITools`)
+
+```python
+from google_api.tools import GoogleAPITools
+
+tools = GoogleAPITools(
+    token_file="secrets/token.json",
+    client_secret_file="secrets/client_secret.json",
+    default_time_zone="Europe/Brussels",
+)
+
+if not tools.authenticate():
+    raise RuntimeError(f"Google auth failed: {tools.last_error}")
+
+# Returns bound methods for all Gmail + Calendar tools
+agent_tools = tools.get_tools()
+```
+
+You can also use [`GmailTools`](src/google_api/tools/gmail_tools.py) or [`CalendarTools`](src/google_api/tools/calendar_tools.py) individually, or call methods directly on `tools.gmail` and `tools.calendar`.
+
+### Binding to LLM Frameworks
+
+**Google GenAI SDK:**
+```python
+from google import genai
+from google_api.tools import GoogleAPITools
+
+tools = GoogleAPITools()
+tools.authenticate()
+
+client = genai.Client()
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="Check my unread emails and see if I am free tomorrow from 14:00 to 15:00.",
+    config={"tools": tools.get_tools()},
+)
+```
+
+**Ollama:**
+```python
+import ollama
+from google_api.tools import GoogleAPITools
+
+tools = GoogleAPITools()
+tools.authenticate()
+
+response = ollama.chat(
+    model="qwen2.5",
+    messages=[{"role": "user", "content": "List my events for 2026-11-12."}],
+    tools=tools.get_tools(),
+)
+```
+
+**LangChain:**
+```python
+from langchain_core.tools import StructuredTool
+from google_api.tools import GoogleAPITools
+
+tools = GoogleAPITools()
+tools.authenticate()
+
+lc_tools = [StructuredTool.from_function(fn) for fn in tools.get_tools()]
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -146,9 +228,10 @@ export GOOGLE_API_HEADLESS=1
 │   ├── calendar/      # Calendar & event handlers, models, and JSON templates
 │   ├── gmail/         # Message & label handlers, message/label objects
 │   ├── oauth/         # Credentials discovery, flow handlers & factory builders
+│   ├── tools/         # AI agent tool layer (GoogleAPITools, GmailTools, CalendarTools)
 │   ├── py.typed       # PEP 561 marker
 │   └── __init__.py    # Top-level API exports
-├── tests/             # Offline unit test suites (Calendar, Gmail, OAuth)
+├── tests/             # Offline unit test suites (Calendar, Gmail, OAuth, Tools)
 └── pyproject.toml     # Packaging and dependency specification (PEP 621)
 ```
 

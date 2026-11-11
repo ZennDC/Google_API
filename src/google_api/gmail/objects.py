@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -84,7 +85,7 @@ class Label:
         if not isinstance(color, tuple) or len(color) != 2:
             raise ValueError("Color must be a tuple of (text_color, background_color).")
 
-    def __setattr__(self, name: str, value: any) -> None:
+    def __setattr__(self, name: str, value: Any) -> None:
         if name == "message_list_visibility":
             self._validate_message_list_visibility(value)
         elif name == "label_list_visibility":
@@ -120,9 +121,9 @@ class Label:
             threads_unread=int(json_obj.get("threadsUnread", 0)),
         )
 
-    def build(self) -> dict:
+    def build(self) -> dict[str, Any]:
         """Serializes the Label for Gmail API create/update requests."""
-        label_obj = {"name": self.name}
+        label_obj: dict[str, Any] = {"name": self.name}
 
         if self.message_list_visibility:
             label_obj["messageListVisibility"] = self.message_list_visibility
